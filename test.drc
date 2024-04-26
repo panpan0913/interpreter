@@ -1,0 +1,47 @@
+s =  SOURCE tp.gds
+t = TARGET tp_M.gds
+poly = INPUT s 1
+active = INPUT s 2
+anglep = INPUT s 3
+l7 = INPUT s 7
+l16 = INPUT s 16
+l17 = INPUT s 17
+l21 = INPUT s 21
+
+
+apa = AND poly active 
+OUTPUT apa 4 0
+aspa = AND active >2 
+OUTPUT aspa 7 0
+agl = ANGLE anglep >45 < 90
+OUTPUT agl 5 0
+ll = LENGTH active < 0.5 
+OUTPUT ll 6 0
+ea = ENCLOSE active l7 ==2
+OUTPUT ea 8 0
+sa = SIZE anglep BY 0.4 OVERUNDER
+OUTPUT sa 11 0
+ipa = INTERACT poly active >1
+OUTPUT ipa 12 0
+nap = NOT active poly 
+OUTPUT nap 10 0
+oap = OR active poly 
+OUTPUT oap 13 0
+xap = XOR active poly 
+OUTPUT xap 14 0
+gp = GROW poly RIGHT BY 0.2 BOTTOM BY 0.1
+OUTPUT gp 15 0
+ext = EXTERNAL l16 l17 <= 0.5 OPPOSITE EXCLUDE SHILDED REGION
+OUTPUT ext 18 0
+enc = ENCLOSURE l16 l17 <= 0.5 OPPOSITE EXCLUDE SHILDED PROJecting < 2.5 
+OUTPUT enc 19 0
+in1617 = INTERNAL l16 l17 <= 0.5 OPPOSITE EXCLUDE SHILDED REGION EXTENTS
+OUTPUT in1617 22 0
+cdp = CONVEX EDGE poly ANGLE1 == 90 ANGLE2 == 90 WITH LENGTH < 2.0
+OUTPUT cdp 20 0
+cep = CONVEX EDGE poly == 1 < 2.0
+OUTPUT cep 26 0
+is1617 = INTERNAL active <= 0.5 SQUARE EXCLUDE SHILDED
+OUTPUT is1617 24 0
+exs = EXTERNAL active <= 0.5 OPPOSITE EXTENDED 0.2 EXCLUDE SHILDED
+OUTPUT exs 25 0

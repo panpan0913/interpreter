@@ -1,0 +1,7 @@
+[
+{
+  "directory": "/home/zhangpan/桌面/interpreter/build",
+  "command": "/usr/bin/g++    -g   -std=gnu++14 -o CMakeFiles/Interpreter.dir/interpreter.cpp.o -c /home/zhangpan/桌面/interpreter/interpreter.cpp",
+  "file": "/home/zhangpan/桌面/interpreter/interpreter.cpp"
+}
+]

@@ -1,0 +1,46 @@
+source("tp.gds")
+target("tp_M.gds")
+poly = input(1)
+active = input(2)
+anglep = input(3)
+l7 = input(7) 
+l16 = input(16)
+l17 = input(17)
+l21 = input(21)
+
+apa = AND poly active 
+apa.output(4, 0)
+aspa = AND active >2 
+aspa.output(7, 0)
+agl = ANGLE anglep >45 < 90
+agl.output(5, 0)
+ll = LENGTH active < 0.5 
+ll.output(6, 0)
+ea = ENCLOSE active l7 ==2
+ea.output(8, 0)
+sa = SIZE anglep BY 0.4 OVERUNDER
+sa.output(11, 0)
+ipa = INTERACT poly active >1
+ipa.output(12, 0)
+nap = NOT active poly 
+nap.output(10, 0)
+oap = OR active poly 
+oap.output(13, 0)
+xap = XOR active poly 
+xap.output(14, 0)
+gp = GROW poly RIGHT BY 0.2 BOTTOM BY 0.1
+gp.output(15, 0)
+ext = EXTERNAL l16 l17 <= 0.5 OPPOSITE EXCLUDE SHILDED REGION
+ext.output(18, 0)
+enc = ENCLOSURE l16 l17 <= 0.5 OPPOSITE EXCLUDE SHILDED PROJecting < 2.5 
+enc.output(19, 0)
+in1617 = INTERNAL l16 l17 <= 0.5 OPPOSITE EXCLUDE SHILDED REGION EXTENTS
+in1617.output(22, 0)
+cdp = CONVEX EDGE poly ANGLE1 == 90 ANGLE2 == 90 WITH LENGTH < 2.0
+cdp.output(20, 0)
+cep = CONVEX EDGE poly == 1 < 2.0
+cep.output(26, 0)
+is1617 = INTERNAL active <= 0.5 SQUARE EXCLUDE SHILDED
+is1617.output(24, 0)
+exs = EXTERNAL active <= 0.5 OPPOSITE EXTENDED 0.2 EXCLUDE SHILDED
+exs.output(25, 0)

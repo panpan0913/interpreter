@@ -1,0 +1,23 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "shell",
+            "label": "CMake 编译",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "${workspaceFolder}/build" // 你的构建目录
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "detail": "使用 CMake 编译项目。"
+        }
+    ]
+}

@@ -1,0 +1,139 @@
+
+# Read about DRC scripts in the User Manual in "Design Rule Check (DRC)"
+
+# This is a sample
+
+def SIZE(layer, val, mode)
+  case mode
+    when 1
+      return layer.raw.drc(sized(val).sized(-val)).merged
+    when 2 
+      return layer.raw.drc(sized(-val).sized(val)).merged
+    else
+      return layer.raw.drc(sized(val)).merged
+  end
+end
+  
+def GROW(layer, l =0, r =0, t =0, b =0)
+  return layer.sized((l+r)/2, (t+b)/2).move((r-l)/2, (t-b)/2)
+end
+
+def AngleMode(min, max)
+  res = []
+  if(min < 180 && max >180)
+    res.push(-180).push(max - 360).push(min).push(180)
+  elsif (min > 180)
+    res.push(min - 360).push(max - 360)
+  else
+    res.push(min).push(max)
+  end
+  return res 
+end
+
+def NOT(layer1, layer2)
+  return layer1.not(layer2)
+end
+  
+def OR(layer1, layer2)
+  return layer1.or(layer2)
+end
+  
+def OR_SELF(layer)
+  return layer.merge()
+end
+  
+def XOR(layer1, layer2)
+  return layer1.xor(layer2)
+end
+  
+def XOR_SELF(layer)
+  return layer.merge() - layer.merge(2)
+end
+
+def AND(layer1,layer2)
+  return layer1.and(layer2)
+end
+  
+def AND_SELF(layer, min, max = 10, re = true)
+  if min == max
+    if re
+      return layer.merged(min) - layer.merged(min+1)
+    else
+      return layer.merged() - layer.merged(min) + layer.merged(min+1)
+    end
+  end
+  
+  if max == 10
+    return layer.merged(min)
+  else
+    return layer.merged(min)- layer.merged(max)
+  end
+end
+
+def INTERACT(layer1, layer2, con)
+  layer2.raw
+  return layer1.raw.drc(con)
+end
+
+def compute_distance(layer, condition, region = false, ext = 0)
+  result = layer.drc(condition)
+  if !region
+    result = result.edges
+    result = result.extended(ext, ext, 1, 0).edges.intersections(result.extended(ext, ext, 0, 1).edges) if ext != 0
+  else
+    result = result.extents if ext != 0
+  end
+  return result
+end
+
+###################################################
+
+def LENGTH(layer, con)
+  return layer.drc((con))
+end
+
+def ENCLOSE(layer1, layer2, con)
+  layer2.raw
+  return layer1.raw.drc(con)
+end  
+  
+def ANGLE(layer, con)
+  return layer.drc(con)
+end
+
+def CONVEXEDGE_DETAIL(layer, acon1, acon2, lcon = length>0)
+  c1 = layer.drc(acon1)
+  c2 = layer.drc(acon2)
+  return c1.polygons.drc(lcon) & c2.polygons.drc(lcon)
+end
+  
+def CONVEXEDGE(layer, mode, lcon = length>0)
+  el = layer.drc(corners(as_edge_pairs) > 0)
+  case mode 
+    when 1
+      return  el.polygons.drc(lcon)
+    when 2
+      return (layer - el.polygons).drc(lcon)
+  end
+end
+
+def ENCLOSURE(layer1, dcon, region = false,  ext = 0)
+  return compute_distance(layer1, dcon, region, ext)
+end
+
+def EXTERNAL(layer1, dcon, region = false,  ext = 0)
+  return compute_distance(layer1, dcon, region, ext)
+end
+
+def EXTERNAL_SELF(layer1, dcon, region = false,  ext = 0)
+  return compute_distance(layer1, dcon, region, ext)
+end
+
+def INTERNAL(layer1, dcon, region = false,  ext = 0)
+  return compute_distance(layer1, dcon, region, ext)
+end
+  
+def INTERNAL_SELF(layer1, dcon, region = false,  ext = 0)
+  return compute_distance(layer1, dcon, region, ext)
+end
+ 
