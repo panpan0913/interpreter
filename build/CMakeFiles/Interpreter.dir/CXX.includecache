@@ -6,6 +6,8 @@
 
 #IncludeRegexTransform: 
 
+/home/zhangpan/桌面/interpreter/ExpressionEnum.h
+
 /home/zhangpan/桌面/interpreter/interpreter.cpp
 interpreter.h
 /home/zhangpan/桌面/interpreter/interpreter.h
@@ -13,6 +15,8 @@ sys/stat.h
 -
 
 /home/zhangpan/桌面/interpreter/interpreter.h
+ExpressionEnum.h
+/home/zhangpan/桌面/interpreter/ExpressionEnum.h
 string
 -
 memory
@@ -22,6 +26,8 @@ vector
 iostream
 -
 unordered_map
+-
+unordered_set
 -
 stack
 -
@@ -46,5 +52,9 @@ thread
 mutex
 -
 condition_variable
+-
+spdlog/sinks/rotating_file_sink.h
+-
+any
 -
 

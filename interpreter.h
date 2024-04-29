@@ -2,11 +2,13 @@
 #define INTERANDPARSER_H
 
 // Include any necessary libraries or headers
+#include "ExpressionEnum.h"
 #include <string>
 #include <memory>
 #include <vector>
 #include <iostream>
 #include <unordered_map>
+#include <unordered_set>
 #include <stack>
 #include <sstream>
 #include <algorithm>
@@ -20,14 +22,102 @@
 #include <mutex>
 #include <condition_variable>
 #include <spdlog/sinks/rotating_file_sink.h>
-
-
+#include <any>
 
 // Declare any global variables or constants
 namespace interpreter {
     class Expression {
+    private:
+        ExpressionType type;
     public:
+        Expression() = default;
+        Expression(int type) : type(static_cast<ExpressionType>(type)) {}
+        Expression(const Expression&) = default;
+        Expression& operator=(const Expression&) = default;
+        Expression(ExpressionType type) : type(type) {}
+        virtual ~Expression() = default;
         virtual std::string interpret() = 0;
+        virtual ExpressionType getType() const {
+            return type;
+        }
+        virtual void setType(ExpressionType id) {
+            this->type = id;
+        }
+    };
+
+    using isMatchFunc = std::function<bool(Expression*, const std::vector<std::shared_ptr<Expression>>&, std::any val)>;
+
+    class ExpressionOptionLimit {
+    private:
+        bool isNessary;
+        uint limitType;
+        std::unordered_map<uint, std::any> limitValue;
+        static std::vector<isMatchFunc> isMatchFuncs;
+    public:
+        ExpressionOptionLimit(bool isNessary, uint limitType, std::unordered_map<uint, std::any>&& limitValue) : isNessary(isNessary), limitType(limitType), limitValue(limitValue) {}
+        bool getIsNessary() const {
+            return isNessary;
+        }
+        uint getLimitType() const {
+            return limitType;
+        }
+        std::unordered_map<uint, std::any>& getLimitValue() {
+            return limitValue;
+        }
+        static void init();
+        bool isMatch(Expression* exp, const std::vector<std::shared_ptr<Expression>>& childs);
+        static bool isExpTypeMatch(Expression* exp, const std::vector<std::shared_ptr<Expression>>&, std::any val);
+        static bool isNExpTypeMatch(Expression* exp, const std::vector<std::shared_ptr<Expression>>&, std::any val);
+        static bool isExpCountMatch(Expression* exp, const std::vector<std::shared_ptr<Expression>>& childs, std::any val);
+        static bool isNumberMatch(Expression* exp, const std::vector<std::shared_ptr<Expression>>&, std::any val);
+        static bool isNExp1InNMatch(Expression* exp, const std::vector<std::shared_ptr<Expression>>& childs, std::any val);
+    };
+
+    class PreExpressionInfo {
+    private:
+        std::string name;
+        ExpressionType type;
+        NonTerminalExpressionType nType;
+        std::string condition;
+        std::weak_ptr<PreExpressionInfo> reverse;//
+        int minOptions;
+        int maxOptions;
+        std::shared_ptr<std::vector<std::shared_ptr<ExpressionOptionLimit>>> limits;
+    public:
+        PreExpressionInfo() = default;
+        PreExpressionInfo(const PreExpressionInfo&) = default;
+        PreExpressionInfo& operator=(const PreExpressionInfo&) = default;
+        ~PreExpressionInfo() = default;
+        PreExpressionInfo(std::string name, ExpressionType type, NonTerminalExpressionType nType, std::string condition, int minOptions, int maxOptions, std::shared_ptr<std::vector<std::shared_ptr<ExpressionOptionLimit>>>&& limits) : name(name), type(type), nType(nType), condition(condition), minOptions(minOptions), maxOptions(maxOptions), limits(limits){}
+        std::string getName() const {
+            return name;
+        }
+        ExpressionType getType() const {
+            return type;
+        }
+        NonTerminalExpressionType getNType() const {
+            return nType;
+        }
+        std::string getCondition() const {
+            return condition;
+        }
+        int getMinOptions() const {
+            return minOptions;
+        }
+        int getMaxOptions() const {
+            return maxOptions;
+        }
+        std::vector<std::shared_ptr<ExpressionOptionLimit>>& getLimits() {
+            return *limits;
+        }
+
+        void setReverse(std::shared_ptr<PreExpressionInfo> reverse) {
+            this->reverse = reverse;
+        }
+
+        std::shared_ptr<PreExpressionInfo> getReverse() {
+            return reverse.lock();
+        }
     };
 
     class Commmon {
@@ -54,46 +144,19 @@ namespace interpreter {
     protected:
         std::string str;
     public:
-        TerminalExpression(const std::string& str) : str(str) {}
+        TerminalExpression(const std::string& str) : Expression(ExpressionType::ORIGIONAL), str(str) {}
         std::string interpret() override { return str; }
-    };
-
-    //special expression
-    class TypicalExpression : public TerminalExpression {
-    private:
-        std::string type;
-    public:
-        TypicalExpression(const std::string& str, std::string&& type) : TerminalExpression(str), type(type) {}
-        std::string getType() const { return type; }
-    };
-
-    class NumberExpression : public TypicalExpression {
-    private:
-        double value;
-    public:
-        NumberExpression(const double val) : TypicalExpression(fmt::format("{:.4}", val), "NUMBER"), value(val) {}
-        double getValue() const { return value; }   
     };
 
     class NonterminalExpression : public Expression {
     protected:
-        int id;
         std::string op;
+        NonTerminalExpressionType nType;
         std::shared_ptr<std::vector<std::shared_ptr<Expression>>> children;
     public:
-        struct ExpressionPath {
-            int id;
-            std::string condition;
-            int minOptions;
-            int maxOptions;
-            std::vector<std::string> optionTypes;
-        };
-
-        NonterminalExpression(std::string op, int id, std::vector<std::shared_ptr<Expression>> childs);
+        NonterminalExpression(std::string op, NonTerminalExpressionType id, std::vector<std::shared_ptr<Expression>> childs);
         virtual std::string interpret() override;
-        int getId() const {
-            return id;
-        }
+
         std::string getOp() const {
             return op;
         }
@@ -101,7 +164,63 @@ namespace interpreter {
         std::shared_ptr<std::vector<std::shared_ptr<Expression>>> getChildren() {
             return children;
         }
+
+        NonTerminalExpressionType getNType() const {
+            return nType;
+        }
     };
+
+    //Fix expression
+    class FixExpression : public Expression {
+    private:
+        std::string op;
+        std::shared_ptr<Expression> left;
+        std::shared_ptr<Expression> right;
+    public:
+        FixExpression() = default;
+        ~FixExpression() = default;
+        std::string interpret() override{
+            return fmt::format("({} {} {})", left->interpret(), op, right->interpret());
+        }
+        FixExpression(std::string op) : Expression(hash.at(op)), op(op) {}
+        FixExpression(std::string op, std::shared_ptr<Expression> left, std::shared_ptr<Expression> right) : op(op), left(left), right(right) {}
+
+        bool setRight(std::shared_ptr<Expression> ri) {
+            right = ri;
+            return true;
+        }
+
+        bool setLeft(std::shared_ptr<Expression> le) {
+            left = le;
+            if (left->getType() == ExpressionType::ORIGIONAL)
+            {
+                left->setType(right->getType());
+            }
+            else if (left->getType() != right->getType())
+            {
+                return false;
+            }
+            
+            return true;
+        }
+
+        std::shared_ptr<Expression> getLeft() {
+            return left;
+        }
+
+        std::shared_ptr<Expression> getRight() {
+            return right;
+        }
+
+        std::string getOp() {
+            return op;
+        }
+
+        static std::unordered_map<std::string, ExpressionType> hash;
+        static void initHash();
+    };
+
+
 
     class ComparatorExpression : public NonterminalExpression {
     private:
@@ -109,9 +228,10 @@ namespace interpreter {
         bool isReverse = false;
         std::string option;
     public:
-        static const std::unordered_map<std::string, ExpressionPath> hash;
+        static std::unordered_map<std::string, std::shared_ptr<PreExpressionInfo>> hash;
+        static void initHash();
 
-        ComparatorExpression(std::string op, int id, std::vector<std::shared_ptr<Expression>> childs);
+        ComparatorExpression(std::string op, NonTerminalExpressionType id, std::vector<std::shared_ptr<Expression>> childs);
         std::string interpret() override;
 
         static bool isComparator(const std::string& str);
@@ -167,115 +287,145 @@ namespace interpreter {
     //输入表达式
     class InputExpression : public NonterminalExpression {
     public:
-        InputExpression(std::string op, int id, std::vector<std::shared_ptr<Expression>> childs) : NonterminalExpression(op, id, childs) {}
+        InputExpression(std::string op, NonTerminalExpressionType id, std::vector<std::shared_ptr<Expression>> childs) : NonterminalExpression(op, id, childs) {
+            setType(hash.at(op)->getType());
+        }
         std::string interpret() override;
-        static const std::unordered_map<std::string, ExpressionPath> hash;
+        static std::unordered_map<std::string, std::shared_ptr<PreExpressionInfo>> hash;
+        static void initHash();
     };
 
     //输出输入表达式
     class OutputExpression : public NonterminalExpression {
     public:
-        OutputExpression(std::string op, int id, std::vector<std::shared_ptr<Expression>> childs) : NonterminalExpression(op, id, childs) {}
+        OutputExpression(std::string op, NonTerminalExpressionType id, std::vector<std::shared_ptr<Expression>> childs) : NonterminalExpression(op, id, childs) {
+            setType(hash.find(op)->second->getType());
+        }
         std::string interpret() override ;
-        static const std::unordered_map<std::string, ExpressionPath> hash;
+        static std::unordered_multimap<std::string, std::shared_ptr<PreExpressionInfo>> hash;
+        static void initHash();
     };
 
     //
     class BYExpression : public NonterminalExpression {
     public:
-        BYExpression(std::string op, int id, std::vector<std::shared_ptr<Expression>> childs) : NonterminalExpression(op, id, childs) {}
+        BYExpression(std::string op, NonTerminalExpressionType id, std::vector<std::shared_ptr<Expression>> childs) : NonterminalExpression(op, id, childs) {
+            setType(ExpressionType::BY_OPTION);
+        }
         std::string interpret() override {
             std::ostringstream result;
             double value = std::stod(children->at(0)->interpret());
             result << std::fixed << std::setprecision(4) << value;
             return result.str();
         }
-        static const std::unordered_map<std::string, ExpressionPath> hash;
+        static std::unordered_map<std::string, std::shared_ptr<PreExpressionInfo>> hash;
+        static void initHash();
     };
 
     class GrowOptionExpression : public NonterminalExpression {
     public:
-        GrowOptionExpression(std::string op, int id, std::vector<std::shared_ptr<Expression>> childs) : NonterminalExpression(op, id, childs) {}
+        GrowOptionExpression(std::string op, NonTerminalExpressionType id, std::vector<std::shared_ptr<Expression>> childs) : NonterminalExpression(op, id, childs) {
+            setType(ExpressionType::GROW_OPTION);
+        }
 
         std::string interpret() override {
             return children->at(0)->interpret();
         }
 
-        static const std::unordered_map<std::string, ExpressionPath> hash;
+        static std::unordered_map<std::string, std::shared_ptr<PreExpressionInfo>> hash;
+        static void initHash();
     };
 
     class SizeOptionExpression : public NonterminalExpression {
     public:
-        SizeOptionExpression(std::string op, int d, std::vector<std::shared_ptr<Expression>> childs) : NonterminalExpression(op, d, childs) {}
-
-        std::string interpret() override {
-            return hash.at(op).condition;
+        SizeOptionExpression(std::string op, NonTerminalExpressionType d, std::vector<std::shared_ptr<Expression>> childs) : NonterminalExpression(op, d, childs) {
+            setType(ExpressionType::SIZE_OPTION);
         }
 
-        static const std::unordered_map<std::string, ExpressionPath> hash;
+        std::string interpret() override {
+            return hash.at(op)->getCondition();
+        }
+
+        static std::unordered_map<std::string, std::shared_ptr<PreExpressionInfo>> hash;
+        static void initHash();
     };
 
     class LengthExpression : public NonterminalExpression {
     public:
-        LengthExpression(std::string op, int d, std::vector<std::shared_ptr<Expression>> childs) : NonterminalExpression(op, d, childs) {}
+        LengthExpression(std::string op, NonTerminalExpressionType d, std::vector<std::shared_ptr<Expression>> childs) : NonterminalExpression(op, d, childs) {
+            setType(ExpressionType::LENGTH_OPTION);
+        }
 
         std::string interpret() override {
             ComparatorExpression* comp = dynamic_cast<ComparatorExpression*>(children->at(0).get());
-            comp->setOption(hash.at(op).condition);
+            comp->setOption(hash.at(op)->getCondition());
             return children->at(0)->interpret();
         }
 
         //hash
-        static const std::unordered_map<std::string, ExpressionPath> hash;
+        static std::unordered_map<std::string, std::shared_ptr<PreExpressionInfo>> hash;
+        static void initHash();
     };
 
     class ConvexEdgeOptionExpression : public NonterminalExpression {
     public:
-        ConvexEdgeOptionExpression(std::string op, int d, std::vector<std::shared_ptr<Expression>> childs) : NonterminalExpression(op, d, childs) {}
+        ConvexEdgeOptionExpression(std::string op, NonTerminalExpressionType d, std::vector<std::shared_ptr<Expression>> childs) : NonterminalExpression(op, d, childs) {
+            setType(ExpressionType::CONVEX_OPTIONS);
+        }
 
         std::string interpret() override;
 
-        static std::unordered_map<std::string, ExpressionPath> hash;
+        static std::unordered_map<std::string, std::shared_ptr<PreExpressionInfo>> hash;
+        static void initHash();
     };
 
     class ExtentOptionExpression : public NonterminalExpression {
     public:
-        ExtentOptionExpression(std::string op, int d, std::vector<std::shared_ptr<Expression>> childs) : NonterminalExpression(op, d, childs) {}
-
-        std::string interpret() override {
-            return (id == 0) ? "0.1" : children->at(0)->interpret();
+        ExtentOptionExpression(std::string op, NonTerminalExpressionType d, std::vector<std::shared_ptr<Expression>> childs) : NonterminalExpression(op, d, childs) {
+            setType(ExpressionType::EXTENT);
         }
 
-        static const std::unordered_map<std::string, ExpressionPath> hash;
+        std::string interpret() override {
+            return (getNType() == NonTerminalExpressionType::EXTENTS) ? "0.1" : children->at(0)->interpret();
+        }
+
+        static std::unordered_map<std::string, std::shared_ptr<PreExpressionInfo>> hash;
+        static void initHash();
     };
 
     class RelationsOptionExpression : public NonterminalExpression {
     public:
-        RelationsOptionExpression(std::string str, int id, std::vector<std::shared_ptr<Expression>> childs);
+        RelationsOptionExpression(std::string str, NonTerminalExpressionType id, std::vector<std::shared_ptr<Expression>> childs);
 
         std::string interpret() override;
 
-        static const std::unordered_map<std::string, ExpressionPath> hash;
+        static std::unordered_map<std::string, std::shared_ptr<PreExpressionInfo>> hash;
+        static void initHash();
     };
 
     class LeftOptionExpression : public NonterminalExpression {
     public:
-        LeftOptionExpression(std::string op, int d, std::vector<std::shared_ptr<Expression>> childs) : NonterminalExpression(op, d, childs) {}
+        LeftOptionExpression(std::string op, NonTerminalExpressionType d, std::vector<std::shared_ptr<Expression>> childs) : NonterminalExpression(op, d, childs) {
+            setType(ExpressionType::LEFT_OPTION);
+        }
 
         std::string interpret() override {
             return op;
         }
 
-        static bool parser(const std::vector<std::string>& tokens, std::stack<std::shared_ptr<Expression>>& stack, int& i, const ExpressionPath& path);
+        static bool parser(const std::vector<std::string>& tokens, std::stack<std::shared_ptr<Expression>>& stack, int& i, const PreExpressionInfo& path);
 
-        static const std::unordered_map<std::string, ExpressionPath> hash;
+        static std::unordered_map<std::string, std::shared_ptr<PreExpressionInfo>> hash;
+        static void initHash();
     };
 
     class LogicalExpression : public NonterminalExpression {
     public:
-        LogicalExpression(std::string op, int d, std::vector<std::shared_ptr<Expression>> childs);
+        LogicalExpression(std::string op, NonTerminalExpressionType d, std::vector<std::shared_ptr<Expression>> childs);
 
         std::string interpret() override;
+
+        void LogicSelfinterpreter(std::ostringstream &result);
 
         void RelationsInterpreter(std::ostringstream& result, int mode);
 
@@ -287,32 +437,78 @@ namespace interpreter {
 
         void setOption(int c, bool r = false, bool d = false);
 
-        const std::string& GetCondition() const;
+        //getCondition
+        std::string GetCondition();
 
         void ANDSelfInterpreter(std::ostringstream& result);
 
-        static const std::unordered_multimap<std::string, ExpressionPath> hash;
-        static const std::vector<std::string> RelationOptionsList0;
-        static const std::vector<std::string> RelationOptionsList1;
+        static std::unordered_multimap<std::string, std::shared_ptr<PreExpressionInfo>> hash;
+        static void initHash();
     };
 
-    using ParserFunc = std::function<bool(const std::vector<std::string>&, std::stack<std::shared_ptr<Expression>>&, int&, const NonterminalExpression::ExpressionPath&)>;
+        //context class
+    class Context {
+    private:
+        std::unordered_map<ExpressionType, std::unique_ptr<std::vector<std::string>>> ContextMap = {};
+    public:
+        Context() = default;
+        ~Context() = default;
+        void addContext(ExpressionType type, std::string&& context){
+            if (ContextMap.find(type) == ContextMap.end())
+            {
+                ContextMap[type] = std::make_unique<std::vector<std::string>>();
+            }
+            ContextMap[type]->push_back(context);
+        }
+
+        std::vector<std::string>& getContext(ExpressionType type){
+            return *ContextMap[type];
+        }
+
+        bool isInContext(ExpressionType type, std::string& str)
+        {
+            if (ContextMap.find(type) == ContextMap.end())
+            {
+                return false;
+            }
+            return std::find(ContextMap[type]->begin(), ContextMap[type]->end(), str) != ContextMap[type]->end();
+        }
+
+        auto getTypeByContext(const std::string& str)
+        {
+            if (ContextMap.empty())
+            {
+                return ExpressionType::ORIGIONAL;
+            }
+            
+            for (auto& [key, value] : ContextMap)
+            {
+                if (std::find(value->begin(), value->end(), str) != value->end())
+                {
+                    return key;
+                }
+            }
+            return ExpressionType::ORIGIONAL;
+        }
+    };
+
+
+    using ParserFunc = std::function<bool(const std::vector<std::string>&, std::stack<std::shared_ptr<Expression>>&, int&, PreExpressionInfo&)>;
 
     class Parser {
     private:
-        static std::unordered_multimap<std::string, std::pair<ParserFunc, NonterminalExpression::ExpressionPath>> parserFuncMap;
-        static std::unordered_map<std::string, std::function<bool(Expression*)>> isCorrectExpressionMap;
+        static std::unordered_multimap<std::string, std::pair<ParserFunc, std::shared_ptr<PreExpressionInfo>>> parserFuncMap;
     public:
         static auto getIter(std::string str);
 
         template <typename T>
-        static bool parser(const std::vector<std::string>& tokens, std::stack<std::shared_ptr<Expression>>& stack, int& i, const NonterminalExpression::ExpressionPath& path);
+        static bool parser(const std::vector<std::string>& tokens, std::stack<std::shared_ptr<Expression>>& stack, int& i, PreExpressionInfo& path);
 
         static std::vector<std::string> tokenize(const std::string& str);
 
-        static std::shared_ptr<Expression> parse(std::string& str);
+        static std::shared_ptr<Expression> parse(std::string& str, Context* cont);
 
-        static std::shared_ptr<Expression> parse(const std::vector<std::string>& tokens);
+        static std::shared_ptr<Expression> parse(const std::vector<std::string>& tokens, Context* cont);
 
         template<typename T>
         static void addCorrectExpressionMap();
@@ -320,6 +516,7 @@ namespace interpreter {
         template <typename T>
         static void Register2Parser();
     };
+
 
     using SetRuningState = std::function<void(int)>;
 
@@ -338,6 +535,7 @@ namespace interpreter {
         int breakLine = -1;
         bool isBreak = false;
         int runTimes = 0;
+        std::unique_ptr<Context> context = {};
     public:
         SetRuningState setRuningState = nullptr;
         InterPreterSingle(const std::string& path);
