@@ -180,7 +180,7 @@ namespace interpreter {
         FixExpression() = default;
         ~FixExpression() = default;
         std::string interpret() override{
-            return fmt::format("({} {} {})", left->interpret(), op, right->interpret());
+            return fmt::format("{} {} {}", left->interpret(), op, right->interpret());
         }
         FixExpression(std::string op) : Expression(hash.at(op)), op(op) {}
         FixExpression(std::string op, std::shared_ptr<Expression> left, std::shared_ptr<Expression> right) : op(op), left(left), right(right) {}
@@ -449,14 +449,14 @@ namespace interpreter {
         //context class
     class Context {
     private:
-        std::unordered_map<ExpressionType, std::unique_ptr<std::vector<std::string>>> ContextMap = {};
+        std::unordered_map<ExpressionType, std::shared_ptr<std::vector<std::string>>> ContextMap = {};
     public:
         Context() = default;
         ~Context() = default;
         void addContext(ExpressionType type, std::string&& context){
             if (ContextMap.find(type) == ContextMap.end())
             {
-                ContextMap[type] = std::make_unique<std::vector<std::string>>();
+                ContextMap[type] = std::make_shared<std::vector<std::string>>();
             }
             ContextMap[type]->push_back(context);
         }
@@ -535,7 +535,7 @@ namespace interpreter {
         int breakLine = -1;
         bool isBreak = false;
         int runTimes = 0;
-        std::unique_ptr<Context> context = {};
+        std::unique_ptr<Context> context = std::make_unique<Context>();
     public:
         SetRuningState setRuningState = nullptr;
         InterPreterSingle(const std::string& path);
@@ -626,4 +626,3 @@ namespace interpreter {
 }
 
 #endif // INTERANDPARSER_H
-

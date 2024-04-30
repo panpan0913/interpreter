@@ -74,7 +74,7 @@ bool ExpressionOptionLimit::isMatch(Expression* exp, const std::vector<std::shar
     {
         if (limitType & (1 << i))
         {
-            res &= isMatchFuncs.at(i)(exp, childs, limitValue[1<<i]);
+            res &= isMatchFuncs.at(i)(exp, childs, limitValue.at(1<<i));
         }
     }
     return res;
@@ -175,8 +175,8 @@ void ComparatorExpression::initHash()
     hash.insert({ ">=", PREPTR(">=", ExpressionType::CONSTRAINT, NonTerminalExpressionType::GREATER_EQUAL, ">=", 1, 1, LIMITLIST(mnLimit)) });
     hash.insert({ ">", PREPTR(">", ExpressionType::CONSTRAINT, NonTerminalExpressionType::GREATER, ">", 1, 1, LIMITLIST(mnLimit)) });
 
-    hash["=="]->setReverse(hash["!="]);
-    hash["!="]->setReverse(hash["=="]);
+    hash["=="]->setReverse(hash["=="]);
+    hash["!="]->setReverse(hash["!="]);
     hash["<="]->setReverse(hash[">="]);
     hash["<"]->setReverse(hash[">"]);
     hash[">="]->setReverse(hash["<="]);
@@ -561,10 +561,10 @@ void InputExpression::initHash()
     auto windowLimits = LIMITLIST(msLimit, mnLimit, mnLimit, mnLimit, mnLimit);
 
     hash.insert({ "SOURCE", PREPTR("SOURCE", ExpressionType::SOURCE_NAME, NonTerminalExpressionType::SOURCE, "source", 1, 1, std::move(sourceLimits)) });
-    hash.insert({ "INPUT", PREPTR("INPUT", ExpressionType::ORIGIONAL_LAYER_NAME, NonTerminalExpressionType::INPUT, "input", 2, 3, std::move(inputLimits)) });
+    hash.insert({ "INPUT", PREPTR("INPUT", ExpressionType::LAYER_NAME, NonTerminalExpressionType::INPUT, "input", 2, 3, std::move(inputLimits)) });
     hash.insert({ "LABELS", PREPTR("LABELS", ExpressionType::LABELS_NAME, NonTerminalExpressionType::LABELS, "labels", 2, 3, std::move(labelsLimits)) });
     hash.insert({ "CELL", PREPTR("CELL", ExpressionType::CELL_NAME, NonTerminalExpressionType::CELL, "cell", 2, 2, std::move(cellLimits)) });
-    hash.insert({ "WINDOW", PREPTR("WINDOW", ExpressionType::ORIGIONAL_LAYER_NAME, NonTerminalExpressionType::WINDOW, "clip", 5, 5, std::move(windowLimits)) });
+    hash.insert({ "WINDOW", PREPTR("WINDOW", ExpressionType::LAYER_NAME, NonTerminalExpressionType::WINDOW, "clip", 5, 5, std::move(windowLimits)) });
 }
 
 std::string interpreter::InputExpression::interpret()
@@ -727,8 +727,8 @@ std::unordered_map<std::string, std::shared_ptr<PreExpressionInfo>> SizeOptionEx
 //inithash
 void SizeOptionExpression::initHash()
 {
-    hash.insert({ "OVERUNDER", PREPTR("OVERUNDER", ExpressionType::SIZE_OPTION, NonTerminalExpressionType::OVERUNDER, "size", 0, 0, LIMITLIST()) });
-    hash.insert({ "UNDEROVER", PREPTR("UNDEROVER", ExpressionType::SIZE_OPTION, NonTerminalExpressionType::UNDEROVER, "size", 0, 0, LIMITLIST()) });
+    hash.insert({ "OVERUNDER", PREPTR("OVERUNDER", ExpressionType::SIZE_OPTION, NonTerminalExpressionType::OVERUNDER, "1", 0, 0, LIMITLIST()) });
+    hash.insert({ "UNDEROVER", PREPTR("UNDEROVER", ExpressionType::SIZE_OPTION, NonTerminalExpressionType::UNDEROVER, "2", 0, 0, LIMITLIST()) });
 }
 
 //hash
@@ -1294,11 +1294,11 @@ std::shared_ptr<Expression> Parser::parse(const std::vector<std::string>& tokens
 
     while ((fixStack.size() > 0) && (stack.size() - fixStack.size() == 1))
     {
-        FixExpression* fix = static_cast<FixExpression*>(fixStack.top().get());
+        std::shared_ptr<FixExpression> fix = std::dynamic_pointer_cast<FixExpression>(fixStack.top());
         fixStack.pop();
-        auto right = stack.top();
-        stack.pop();
         auto left = stack.top();
+        stack.pop();
+        auto right = stack.top();
         stack.pop();
         bOK |= fix->setRight(right);
         bOK |= fix->setLeft(left);
@@ -1449,8 +1449,6 @@ void InterPreterSingle::stop()
 void InterPreterSingle::run()
 {
     bool bOK = true;
-    context = std::make_unique<Context>();
-    context->addContext(ExpressionType::ORIGIONAL, "");
     for (int i = 0; i < lines.size(); i++)
     {
         {
@@ -1459,7 +1457,6 @@ void InterPreterSingle::run()
             {
                 breakLine = -1;
                 paused = true;
-                isBreak = true;
                 cv.notify_all();
 				setRuningState(2);
             }
@@ -1497,6 +1494,8 @@ void InterPreterSingle::run()
                 {
                     //std::cout << "paused: " << paused << std::endl;
                     std::unique_lock<std::mutex> lock(mtx);
+                    isBreak = true;
+                    cv.notify_all();
                     cv.wait(lock, [this] { return !paused; });
                 }
                 char * klayoutPath = getenv("KLAYOUT_PATH");
@@ -1595,6 +1594,7 @@ void InterPreterSingle::SetBreakPoint(int line)
     breakLine = line;
     isBreak = false;
     paused = false;
+    setRuningState(1);
     cv.notify_all();
 }
 
@@ -1738,21 +1738,26 @@ int Interpreter::getBreakLine(const std::string& path)
 int main()
 {
     //test
+    int state = 0;
     Interpreter::Init();
     std::cout << "Test Start!" << std::endl;
-    Interpreter::Run("test", [](int state) { std::cout << "State: " << state << std::endl; });
+    Interpreter::Run("test", [&state](int st) { state = st ; std::cout << "State: " << state << std::endl; });
     std::cout << "Test Pause!" << std::endl;
     Interpreter::Pause("test");
     std::cout << "Test SetBreakPoint!" << std::endl;
     Interpreter::SetBreakPoint("test", 2);
     std::cout << "Test Resume!" << std::endl;
-    std::this_thread::sleep_for(std::chrono::seconds(2));
-    while (!Interpreter::getIsBreak("test"))
+     std::this_thread::sleep_for(std::chrono::seconds(2));
+    while (Interpreter::getIsBreak("test"))
     {
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
-
-    std::this_thread::sleep_for(std::chrono::seconds(10));
+    Interpreter::Resume("test");
+    std::cout << "Test Stop!" << std::endl;
+    while (state)
+    {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
     Interpreter::Stop("test");
     return 0;
 }
