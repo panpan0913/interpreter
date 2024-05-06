@@ -70,7 +70,7 @@ void ExpressionOptionLimit::init()
 bool ExpressionOptionLimit::isMatch(Expression* exp, const std::vector<std::shared_ptr<Expression>>& childs)
 {
     bool res = true;
-    for (auto &[key, val] : limitMap)
+    for (auto &&[key, val] : limitMap)
     {
         res &= isMatchFuncs.at(key)(exp, childs, val);
     }
@@ -1313,7 +1313,7 @@ bool Parser::parser(const std::vector<std::string>& tokens, std::stack<std::shar
         return false;
     }
     
-    for (auto &limit: path.getLimits())
+    for (auto &&limit: path.getLimits())
     {
         if (stack.empty())
         {

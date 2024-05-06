@@ -477,7 +477,7 @@ namespace interpreter {
                 return ExpressionType::ORIGIONAL;
             }
             
-            for (auto& [key, value] : ContextMap)
+            for (auto&& [key, value] : ContextMap)
             {
                 if (std::find(value->begin(), value->end(), str) != value->end())
                 {
