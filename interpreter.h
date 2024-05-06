@@ -50,19 +50,15 @@ namespace interpreter {
     class ExpressionOptionLimit {
     private:
         bool isNessary;
-        uint limitType;
-        std::unordered_map<uint, std::any> limitValue;
-        static std::vector<isMatchFunc> isMatchFuncs;
+        std::unordered_map<ExpressionLimitType, std::any> limitMap;
+        static std::unordered_map<ExpressionLimitType, isMatchFunc> isMatchFuncs;
     public:
-        ExpressionOptionLimit(bool isNessary, uint limitType, std::unordered_map<uint, std::any>&& limitValue) : isNessary(isNessary), limitType(limitType), limitValue(limitValue) {}
+        ExpressionOptionLimit(bool isNessary, std::unordered_map<ExpressionLimitType, std::any>&& map) : isNessary(isNessary), limitMap(map) {}
         bool getIsNessary() const {
             return isNessary;
         }
-        uint getLimitType() const {
-            return limitType;
-        }
-        std::unordered_map<uint, std::any>& getLimitValue() {
-            return limitValue;
+        std::unordered_map<ExpressionLimitType, std::any>& getLimitValue() {
+            return limitMap;
         }
         static void init();
         bool isMatch(Expression* exp, const std::vector<std::shared_ptr<Expression>>& childs);

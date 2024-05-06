@@ -107,15 +107,23 @@ namespace interpreter {
         //
         NTYPE_END
     };
-}
 
-#define LIMIT(b, flag, ...) std::make_shared<ExpressionOptionLimit>(b, flag, std::unordered_map<uint, std::any>{__VA_ARGS__})
+    enum class ExpressionLimitType {
+        EXPRESSION_TYPE_LIMIT,
+        NEXPRESSION_TYPE_LIMIT,
+        EXPRESSION_COUNT_LIMIT,
+        EXPRESSION_NUMBER_LIMIT,
+        NEXPRESSION_ONE_IN_N_LIMIT,
+        LIMIT_TYPE_END
+    };
+}
+#define INTERPRETERINITSTATE 0
+#define INTERPRETERRUNNINGSTATE 1
+#define INTERPRETERPAUSINGSTATE 2
+
+
+#define LIMIT(b,  ...) std::make_shared<ExpressionOptionLimit>(b, std::unordered_map<ExpressionLimitType, std::any>{__VA_ARGS__})
 #define LIMITLIST(...) std::make_shared<std::vector<std::shared_ptr<ExpressionOptionLimit>>>(std::vector<std::shared_ptr<ExpressionOptionLimit>>{__VA_ARGS__})
 #define PREPTR std::make_shared<PreExpressionInfo>
 
-#define EXPRESSIONTYPELIMITFLAG         (0x0001 << 0)
-#define NEXPRESSIONTYPELIMITFLAG        (0x0001 << 1)
-#define EXPRESSIONCOUNTLIMITFLAG        (0x0001 << 2)
-#define EXPRESSIONNUMBERLIMITFLAG       (0x0001 << 3)
-#define NEXPRESSIONONELIMITINNFLAG      (0x0001 << 4)
 #endif

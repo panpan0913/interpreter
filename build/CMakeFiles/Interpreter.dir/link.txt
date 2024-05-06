@@ -1,1 +1,0 @@
-/usr/bin/g++  -g   CMakeFiles/Interpreter.dir/interpreter.cpp.o  -o Interpreter  -lpthread 
