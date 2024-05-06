@@ -1,3 +1,0 @@
-/home/zhangpan/桌面/interpreter/build/CMakeFiles/rebuild_cache.dir
-/home/zhangpan/桌面/interpreter/build/CMakeFiles/edit_cache.dir
-/home/zhangpan/桌面/interpreter/build/CMakeFiles/Interpreter.dir
