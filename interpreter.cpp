@@ -1257,8 +1257,13 @@ auto Parser::getIter(std::string str)
     else
     {
         auto s = ComparatorExpression::getComparator(str);
-        return parserFuncMap.find(s)->second;
+        auto it = parserFuncMap.find(str);
+        if (it != parserFuncMap.end())
+        {
+            return it->second;
+        }
     }
+    return std::vector<std::pair<ParserFunc, std::shared_ptr<PreExpressionInfo>>>();
 }
 
 // 类似前缀表达式的解析，实现递归解析
@@ -1373,7 +1378,12 @@ void Parser::Register2Parser()
     T::initHash();
     for (auto& p : T::hash)
     {
-        parserFuncMap.insert({ p.first, {parser<T>, p.second} });
+        if (parserFuncMap.find(p.first) != parserFuncMap.end())
+        {
+            parserFuncMap[p.first].push_back({parser<T>, p.second});
+            std::sort(parserFuncMap[p.first].begin(), parserFuncMap[p.first].end(), [](const auto& a, const auto& b) { return a.second->getMinOptions() > b.second->getMinOptions(); });
+        }
+        parserFuncMap.insert({p.first, {{parser<T>, p.second}}});
     }
 }
 
