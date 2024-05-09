@@ -1,5 +1,6 @@
 {
     "files.associations": {
+        "editor.formatOnSave": "true",
         "array": "cpp",
         "atomic": "cpp",
         "bit": "cpp",
@@ -57,6 +58,8 @@
         "thread": "cpp",
         "cinttypes": "cpp",
         "typeinfo": "cpp",
-        "any": "cpp"
+        "any": "cpp",
+        "clang-format.executable": "/absolute/path/to/clang-format",
+        "unordered_set": "cpp"
     }
 }

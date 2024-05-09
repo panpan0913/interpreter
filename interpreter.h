@@ -244,8 +244,6 @@ namespace interpreter {
         std::string getComparator();
         std::string getReverseComparator() const;
 
-        int getComparatorValue() const;
-
         std::string getOperand();
 
         void setDoubleDirection(bool isDoubleDirection);
@@ -416,6 +414,8 @@ namespace interpreter {
     };
 
     class LogicalExpression : public NonterminalExpression {
+    private:
+        bool NotFlag = false;
     public:
         LogicalExpression(std::string op, NonTerminalExpressionType d, std::vector<std::shared_ptr<Expression>> childs);
 
@@ -433,6 +433,10 @@ namespace interpreter {
 
         void setOption(int c, bool r = false, bool d = false);
 
+        void setNotFlag(bool flag);
+
+        bool getNotFlag();
+
         //getCondition
         std::string GetCondition();
 
@@ -442,7 +446,7 @@ namespace interpreter {
         static void initHash();
     };
 
-        //context class
+    //context class
     class Context {
     private:
         std::unordered_map<ExpressionType, std::shared_ptr<std::vector<std::string>>> ContextMap = {};
@@ -493,7 +497,7 @@ namespace interpreter {
 
     class Parser {
     private:
-        static std::unordered_multimap<std::string, std::pair<ParserFunc, std::shared_ptr<PreExpressionInfo>>> parserFuncMap;
+        static std::unordered_map<std::string, std::vector<std::pair<ParserFunc, std::shared_ptr<PreExpressionInfo>>>> parserFuncMap;
     public:
         static auto getIter(std::string str);
 

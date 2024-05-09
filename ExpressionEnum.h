@@ -19,8 +19,11 @@ namespace interpreter {
         TARGET_NAME,
         REPORT_NAME,
         LAYER_NAME,
+        REGION_LAYER_NAME,
+        EDGE_LAYER_NAME,
         CELL_NAME,
         LEFT_OPTION,
+        LEFT_ADD_OPTION,
         RELATIONS_OPTION,
         EXTENT,
         CONVEX_OPTIONS,
@@ -123,6 +126,11 @@ namespace interpreter {
 
 
 #define LIMIT(b,  ...) std::make_shared<ExpressionOptionLimit>(b, std::unordered_map<ExpressionLimitType, std::any>{__VA_ARGS__})
+#define EXPRESSIONTYPELIMIT(...) {ExpressionLimitType::EXPRESSION_TYPE_LIMIT, std::vector<ExpressionType>{__VA_ARGS__}}
+#define NEXPRESSIONTYPELIMIT(...) {ExpressionLimitType::NEXPRESSION_TYPE_LIMIT, std::vector<NonTerminalExpressionType>{__VA_ARGS__}}
+#define EXPRESSIONCOUNTLIMIT(n) {ExpressionLimitType::EXPRESSION_COUNT_LIMIT, n}
+#define EXPRESSIONNUMBERLIMIT {ExpressionLimitType::EXPRESSION_NUMBER_LIMIT, 0}
+#define NEXPRESSIONONEINNLIMIT(...) {ExpressionLimitType::NEXPRESSION_ONE_IN_N_LIMIT, std::vector<NonTerminalExpressionType>{__VA_ARGS__}}
 #define LIMITLIST(...) std::make_shared<std::vector<std::shared_ptr<ExpressionOptionLimit>>>(std::vector<std::shared_ptr<ExpressionOptionLimit>>{__VA_ARGS__})
 #define PREPTR std::make_shared<PreExpressionInfo>
 

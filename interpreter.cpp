@@ -7,7 +7,7 @@ static const double DOUBLE_MAX = std::numeric_limits<double>::max();
 static const double DOUBLE_MIN = std::numeric_limits<double>::min();
 
 //parserFuncMap init
-std::unordered_multimap<std::string, std::pair<ParserFunc, std::shared_ptr<PreExpressionInfo>>> Parser::parserFuncMap = {};
+std::unordered_map<std::string, std::vector<std::pair<ParserFunc, std::shared_ptr<PreExpressionInfo>>>> Parser::parserFuncMap = {};
 
 template<>
 bool Parser::parser<ComparatorExpression>(const std::vector<std::string>& tokens, std::stack<std::shared_ptr<Expression>>& stack, int& i, PreExpressionInfo&)
@@ -80,13 +80,15 @@ bool ExpressionOptionLimit::isMatch(Expression* exp, const std::vector<std::shar
 //
 bool ExpressionOptionLimit::isExpTypeMatch(Expression* exp, const std::vector<std::shared_ptr<Expression>>& childs, std::any val)
 {
-    return exp->getType() == std::any_cast<ExpressionType>(val);
+    auto types = std::any_cast<std::vector<ExpressionType>>(val);
+    return std::find(types.begin(), types.end(), exp->getType()) != types.end();
 }
 
 bool ExpressionOptionLimit::isNExpTypeMatch(Expression* exp, const std::vector<std::shared_ptr<Expression>>& childs, std::any val)
 {
+    auto ntypes = std::any_cast<std::vector<NonTerminalExpressionType>>(val);
     NonterminalExpression *nexp = dynamic_cast<NonterminalExpression*>(exp);
-    return nexp && nexp->getNType() == std::any_cast<NonTerminalExpressionType>(val);
+    return nexp && std::find(ntypes.begin(), ntypes.end(), nexp->getNType()) != ntypes.end();
 }
 
 bool ExpressionOptionLimit::isExpCountMatch(Expression* exp, const std::vector<std::shared_ptr<Expression>>& childs, std::any val)
@@ -163,7 +165,7 @@ void FixExpression::initHash()
 //inithash
 void ComparatorExpression::initHash()
 {
-    auto mnLimit = LIMIT(true, {ExpressionLimitType::EXPRESSION_NUMBER_LIMIT, ExpressionType::NUMBER});
+    auto mnLimit = LIMIT(true, EXPRESSIONNUMBERLIMIT);
 
     hash.insert({ "==", PREPTR("==", ExpressionType::CONSTRAINT, NonTerminalExpressionType::EQUAL, "==", 1, 1, LIMITLIST(mnLimit)) });
     hash.insert({ "!=", PREPTR("!=", ExpressionType::CONSTRAINT, NonTerminalExpressionType::NOT_EQUAL, "!=", 1, 1, LIMITLIST(mnLimit))});
@@ -546,10 +548,10 @@ std::unordered_map<std::string, std::shared_ptr<PreExpressionInfo>> InputExpress
 
 void InputExpression::initHash()
 {
-    auto mtLimit = LIMIT(true, {ExpressionLimitType::EXPRESSION_TYPE_LIMIT, ExpressionType::ORIGIONAL});
-    auto mnLimit = LIMIT(true, {ExpressionLimitType::EXPRESSION_NUMBER_LIMIT, ExpressionType::NUMBER});
-    auto onLimit = LIMIT(false, {ExpressionLimitType::EXPRESSION_NUMBER_LIMIT, ExpressionType::NUMBER});
-    auto msLimit = LIMIT(true, {ExpressionLimitType::EXPRESSION_TYPE_LIMIT, ExpressionType::SOURCE_NAME});
+    auto mtLimit = LIMIT(true, EXPRESSIONTYPELIMIT(ExpressionType::ORIGIONAL));
+    auto mnLimit = LIMIT(true, EXPRESSIONNUMBERLIMIT);
+    auto onLimit = LIMIT(false, EXPRESSIONNUMBERLIMIT);
+    auto msLimit = LIMIT(true, EXPRESSIONTYPELIMIT(ExpressionType::SOURCE_NAME));
 
     auto sourceLimits = LIMITLIST(mtLimit);
     auto inputLimits = LIMITLIST(msLimit, mnLimit, onLimit);
@@ -603,13 +605,13 @@ std::unordered_multimap<std::string, std::shared_ptr<PreExpressionInfo>> OutputE
 //inithash
 void OutputExpression::initHash()
 {
-    auto mlLimit = LIMIT(true, {ExpressionLimitType::EXPRESSION_TYPE_LIMIT, ExpressionType::LAYER_NAME});
-    auto mtLimit = LIMIT(true, {ExpressionLimitType::EXPRESSION_TYPE_LIMIT, ExpressionType::ORIGIONAL});
-    auto otLimit = LIMIT(false,  {ExpressionLimitType::EXPRESSION_TYPE_LIMIT, ExpressionType::ORIGIONAL});
-    auto mnLimit = LIMIT(true, {ExpressionLimitType::EXPRESSION_NUMBER_LIMIT, ExpressionType::NUMBER});
-    auto onLimit = LIMIT(false,  {ExpressionLimitType::EXPRESSION_NUMBER_LIMIT, ExpressionType::NUMBER});
-    auto oTargetLimit = LIMIT(false, {ExpressionLimitType::EXPRESSION_TYPE_LIMIT, ExpressionType::TARGET_NAME});
-    auto oReportLimit = LIMIT(true, {ExpressionLimitType::EXPRESSION_TYPE_LIMIT, ExpressionType::REPORT_NAME});
+    auto mlLimit = LIMIT(true, EXPRESSIONTYPELIMIT(ExpressionType::LAYER_NAME, ExpressionType::EDGE_LAYER_NAME, ExpressionType::REGION_LAYER_NAME));
+    auto mtLimit = LIMIT(true, EXPRESSIONTYPELIMIT(ExpressionType::ORIGIONAL));
+    auto otLimit = LIMIT(false, EXPRESSIONTYPELIMIT(ExpressionType::ORIGIONAL));
+    auto mnLimit = LIMIT(true, EXPRESSIONNUMBERLIMIT);
+    auto onLimit = LIMIT(false,  EXPRESSIONNUMBERLIMIT);
+    auto oTargetLimit = LIMIT(false, EXPRESSIONTYPELIMIT(ExpressionType::TARGET_NAME));
+    auto oReportLimit = LIMIT(true, EXPRESSIONTYPELIMIT(ExpressionType::REPORT_NAME));
 
     auto outputLimits = LIMITLIST(mlLimit, mnLimit, onLimit, oTargetLimit);
     auto outputLimits0 = LIMITLIST(mlLimit, mtLimit, otLimit, oReportLimit);
@@ -669,7 +671,7 @@ std::unordered_map<std::string, std::shared_ptr<PreExpressionInfo>> BYExpression
 //inithash
 void BYExpression::initHash()
 {
-    auto mnLimit = LIMIT(true, {ExpressionLimitType::EXPRESSION_NUMBER_LIMIT, ExpressionType::NUMBER});
+    auto mnLimit = LIMIT(true, EXPRESSIONNUMBERLIMIT);
 
     hash.insert({ "BY", PREPTR("BY", ExpressionType::BY_OPTION, NonTerminalExpressionType::BY, "", 1, 1, LIMITLIST(mnLimit))});
 }
@@ -680,7 +682,7 @@ std::unordered_map<std::string, std::shared_ptr<PreExpressionInfo>> GrowOptionEx
 //inithash
 void GrowOptionExpression::initHash()
 {
-    auto mbLimit = LIMIT(true, {ExpressionLimitType::EXPRESSION_TYPE_LIMIT, ExpressionType::BY_OPTION});
+    auto mbLimit = LIMIT(true, EXPRESSIONTYPELIMIT(ExpressionType::BY_OPTION));
 
     hash.insert({ "LEFT", PREPTR("LEFT", ExpressionType::GROW_OPTION, NonTerminalExpressionType::LEFT, "", 1, 1, LIMITLIST(mbLimit))});
     hash.insert({ "RIGHT", PREPTR("RIGHT", ExpressionType::GROW_OPTION, NonTerminalExpressionType::RIGHT, "", 1, 1, LIMITLIST(mbLimit))});
@@ -694,10 +696,10 @@ std::unordered_map<std::string, std::shared_ptr<PreExpressionInfo>> ConvexEdgeOp
 //inithash
 void ConvexEdgeOptionExpression::initHash()
 {
-    auto ol1Limit = LIMIT(false, {ExpressionLimitType::NEXPRESSION_TYPE_LIMIT, NonTerminalExpressionType::LENGTH1});
-    auto ol2Limit = LIMIT(false, {ExpressionLimitType::NEXPRESSION_TYPE_LIMIT, NonTerminalExpressionType::LENGTH2});
-    auto mlLimit = LIMIT(true, {ExpressionLimitType::NEXPRESSION_TYPE_LIMIT, NonTerminalExpressionType::LENGTH_OPTION});
-    auto mcLimit = LIMIT(true, {ExpressionLimitType::EXPRESSION_TYPE_LIMIT, ExpressionType::CONSTRAINT});
+    auto ol1Limit = LIMIT(false, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::LENGTH1));
+    auto ol2Limit = LIMIT(false, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::LENGTH2));
+    auto mlLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::LENGTH_OPTION));
+    auto mcLimit = LIMIT(true, EXPRESSIONTYPELIMIT(ExpressionType::CONSTRAINT));
 
     hash.insert({ "ANGLE1", PREPTR("ANGLE1", ExpressionType::CONVEX_OPTIONS, NonTerminalExpressionType::ANGLE1, "corners(as_edge_pairs)", 1, 2, LIMITLIST(mcLimit, ol1Limit))});
     hash.insert({ "ANGLE2", PREPTR("ANGLE2", ExpressionType::CONVEX_OPTIONS, NonTerminalExpressionType::ANGLE2, "corners(as_edge_pairs)", 1, 2, LIMITLIST(mcLimit, ol2Limit))});
@@ -711,7 +713,7 @@ std::unordered_map<std::string, std::shared_ptr<PreExpressionInfo>> LengthExpres
 //inithash
 void LengthExpression::initHash()
 {
-    auto mcLimit = LIMIT(true, {ExpressionLimitType::EXPRESSION_TYPE_LIMIT, ExpressionType::CONSTRAINT});
+    auto mcLimit = LIMIT(true, EXPRESSIONTYPELIMIT(ExpressionType::CONSTRAINT));
 
     hash.insert({ "LENGTH1", PREPTR("LENGTH1", ExpressionType::LENGTH_OPTION, NonTerminalExpressionType::LENGTH1, "length", 1, 1, LIMITLIST(mcLimit)) });
     hash.insert({ "LENGTH2", PREPTR("LENGTH2", ExpressionType::LENGTH_OPTION, NonTerminalExpressionType::LENGTH2, "length", 1, 1, LIMITLIST(mcLimit)) });
@@ -734,7 +736,7 @@ std::unordered_map<std::string, std::shared_ptr<PreExpressionInfo>> ExtentOption
 //inithash
 void ExtentOptionExpression::initHash()
 {
-    auto mnLimit = LIMIT(true, {ExpressionLimitType::EXPRESSION_NUMBER_LIMIT, ExpressionType::NUMBER});
+    auto mnLimit = LIMIT(true, EXPRESSIONNUMBERLIMIT);
 
     hash.insert({ "EXTENTS", PREPTR("EXTENTS", ExpressionType::EXTENT, NonTerminalExpressionType::EXTENTS, "ext", 0, 0, LIMITLIST()) });
     hash.insert({ "EXTENDED", PREPTR("EXTENDED", ExpressionType::EXTENT, NonTerminalExpressionType::EXTENDED, "ext", 1, 1, LIMITLIST(mnLimit)) });
@@ -746,9 +748,9 @@ std::unordered_map<std::string, std::shared_ptr<PreExpressionInfo>> RelationsOpt
 //inithash
 void RelationsOptionExpression::initHash()
 {
-    auto mcLimit = LIMIT(true, {ExpressionLimitType::EXPRESSION_TYPE_LIMIT, ExpressionType::CONSTRAINT});
-    auto oetLimit = LIMIT(true, {ExpressionLimitType::NEXPRESSION_TYPE_LIMIT, NonTerminalExpressionType::EXTENTS});
-    auto oedLimit = LIMIT(false, {ExpressionLimitType::NEXPRESSION_TYPE_LIMIT, NonTerminalExpressionType::EXTENDED});
+    auto mcLimit = LIMIT(true, EXPRESSIONTYPELIMIT(ExpressionType::CONSTRAINT));
+    auto oetLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::EXTENTS));
+    auto oedLimit = LIMIT(false, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::EXTENDED));
 
     hash.insert({ "OPPOSITE", PREPTR("OPPOSITE", ExpressionType::RELATIONS_OPTION, NonTerminalExpressionType::OPPOSITE, "projection", 0, 1, LIMITLIST(oedLimit)) });
     hash.insert({ "SQUARE", PREPTR("SQUARE", ExpressionType::RELATIONS_OPTION, NonTerminalExpressionType::SQUARE, "projection", 0, 0, LIMITLIST()) });
@@ -763,11 +765,13 @@ std::unordered_map<std::string, std::shared_ptr<PreExpressionInfo>> LeftOptionEx
 //inithash
 void LeftOptionExpression::initHash()
 {
-    auto msLimit = LIMIT(true, {ExpressionLimitType::NEXPRESSION_TYPE_LIMIT, NonTerminalExpressionType::SHILDED});
-    auto mpLimit = LIMIT(true, {ExpressionLimitType::NEXPRESSION_TYPE_LIMIT, NonTerminalExpressionType::PROJecting});
+    auto msLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::SHILDED));
+    auto mpLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::PROJecting));
+
 
     hash.insert({ "NOT", PREPTR("NOT", ExpressionType::LEFT_OPTION, NonTerminalExpressionType::NOT, "PROJecting", 1, 1, LIMITLIST(mpLimit))});
     hash.insert({ "EXCLUDE", PREPTR("EXCLUDE", ExpressionType::LEFT_OPTION, NonTerminalExpressionType::EXCLUDE, "SHILDED", 1, 1, LIMITLIST(msLimit))});
+    //hash.insert({"NOT", PREPTR("NOT", ExpressionType::LEFT_ADD_OPTION, NonTerminalExpressionType::NOT, "PROJecting", 1, 1, LIMITLIST(mpLimit))});
 }
 
 // LogicalExpression
@@ -839,7 +843,8 @@ std::string LogicalExpression::interpret()
     default:
         break;
     }
-    return result.str();
+    
+    return fmt::format("{}{}", (NotFlag)?"NOT":"", result.str());
 }
 
 void LogicalExpression::LogicSelfinterpreter(std::ostringstream &result)
@@ -920,7 +925,7 @@ void interpreter::LogicalExpression::RelationsInterpreter(std::ostringstream& re
 
     if (isRegion || ext != 0)
     {
-        result << ", " << isRegion ? "true" : "false";
+        result << ", " << (isRegion ? "true" : "false");
     }
 
     if (ext != 0)
@@ -1003,6 +1008,16 @@ void interpreter::LogicalExpression::setOption(int c, bool r, bool d)
     }
 }
 
+void interpreter::LogicalExpression::setNotFlag(bool flag)
+{
+    NotFlag = flag;
+}
+
+bool interpreter::LogicalExpression::getNotFlag()
+{
+    return NotFlag;
+}
+
 std::string LogicalExpression::GetCondition() 
 {
     for (auto it = hash.find(op); it != hash.end(); it++)
@@ -1045,20 +1060,20 @@ std::unordered_multimap<std::string, std::shared_ptr<PreExpressionInfo>> Logical
 //inithash
 void LogicalExpression::initHash()
 {
-    auto mlLimit = LIMIT(true,  {ExpressionLimitType::EXPRESSION_TYPE_LIMIT, ExpressionType::LAYER_NAME});
-    auto olLimit = LIMIT(false, {ExpressionLimitType::EXPRESSION_TYPE_LIMIT, ExpressionType::LAYER_NAME});
-    auto mcLimit = LIMIT(true, {ExpressionLimitType::EXPRESSION_TYPE_LIMIT, ExpressionType::CONSTRAINT});
-    auto ocLimit = LIMIT(false,  {ExpressionLimitType::EXPRESSION_TYPE_LIMIT, ExpressionType::CONSTRAINT});
-    auto mgLimit = LIMIT(true,  {ExpressionLimitType::EXPRESSION_TYPE_LIMIT, ExpressionType::GROW_OPTION});
-    auto ogLimit = LIMIT(false,  {ExpressionLimitType::EXPRESSION_TYPE_LIMIT, ExpressionType::GROW_OPTION}, {ExpressionLimitType::EXPRESSION_COUNT_LIMIT, 1});
-    auto mbLimit = LIMIT(true, {ExpressionLimitType::EXPRESSION_TYPE_LIMIT, ExpressionType::BY_OPTION});
-    auto osLimit = LIMIT(false, {ExpressionLimitType::EXPRESSION_TYPE_LIMIT, ExpressionType::SIZE_OPTION});
-    auto mEdgeLimit = LIMIT(true,  {ExpressionLimitType::NEXPRESSION_TYPE_LIMIT, NonTerminalExpressionType::EDGE});
-    auto mAngle1Limit = LIMIT(true,  {ExpressionLimitType::NEXPRESSION_TYPE_LIMIT, NonTerminalExpressionType::ANGLE1});
-    auto mAngle2Limit = LIMIT(true,  {ExpressionLimitType::NEXPRESSION_TYPE_LIMIT, NonTerminalExpressionType::ANGLE2});
-    auto oWithLimit = LIMIT(false, {ExpressionLimitType::NEXPRESSION_TYPE_LIMIT, NonTerminalExpressionType::WITH});
-    auto oRelLimit = LIMIT(false, {ExpressionLimitType::EXPRESSION_TYPE_LIMIT, ExpressionType::RELATIONS_OPTION}, {ExpressionLimitType::EXPRESSION_COUNT_LIMIT, 1}, 
-                            {ExpressionLimitType::NEXPRESSION_ONE_IN_N_LIMIT, std::vector<NonTerminalExpressionType>{NonTerminalExpressionType::OPPOSITE, NonTerminalExpressionType::SQUARE}});
+    auto mlLimit = LIMIT(true,  EXPRESSIONTYPELIMIT(ExpressionType::LAYER_NAME, ExpressionType::EDGE_LAYER_NAME, ExpressionType::REGION_LAYER_NAME));
+    auto olLimit = LIMIT(false, EXPRESSIONTYPELIMIT(ExpressionType::LAYER_NAME, ExpressionType::EDGE_LAYER_NAME, ExpressionType::REGION_LAYER_NAME));
+    auto mcLimit = LIMIT(true, EXPRESSIONTYPELIMIT(ExpressionType::CONSTRAINT));
+    auto ocLimit = LIMIT(false,  EXPRESSIONTYPELIMIT(ExpressionType::CONSTRAINT));
+    auto mgLimit = LIMIT(true,  EXPRESSIONTYPELIMIT(ExpressionType::GROW_OPTION));
+    auto ogLimit = LIMIT(false,  EXPRESSIONTYPELIMIT(ExpressionType::GROW_OPTION), EXPRESSIONCOUNTLIMIT(1));
+    auto mbLimit = LIMIT(true, EXPRESSIONTYPELIMIT(ExpressionType::BY_OPTION));
+    auto osLimit = LIMIT(false, EXPRESSIONTYPELIMIT(ExpressionType::SIZE_OPTION));
+    auto mEdgeLimit = LIMIT(true,  NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::EDGE));
+    auto mAngle1Limit = LIMIT(true,  NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::ANGLE1));
+    auto mAngle2Limit = LIMIT(true,  NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::ANGLE2));
+    auto oWithLimit = LIMIT(false, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::WITH));
+    auto oRelLimit = LIMIT(false, EXPRESSIONTYPELIMIT(ExpressionType::RELATIONS_OPTION), EXPRESSIONCOUNTLIMIT(1), 
+                            NEXPRESSIONONEINNLIMIT(NonTerminalExpressionType::OPPOSITE, NonTerminalExpressionType::SQUARE));
 
     auto andselfLimit = LIMITLIST(mlLimit, mcLimit);
     auto andLimit = LIMITLIST(mlLimit, olLimit);
@@ -1234,15 +1249,15 @@ std::shared_ptr<Expression> Parser::parse(std::string& str, Context* context)
 
 auto Parser::getIter(std::string str)
 {
-    auto it = parserFuncMap.equal_range(str);
-    if (it.first != parserFuncMap.end())
+    auto it = parserFuncMap.find(str);
+    if (it != parserFuncMap.end())
     {
-        return it;
+        return it->second;
     }
     else
     {
         auto s = ComparatorExpression::getComparator(str);
-        return parserFuncMap.equal_range(s);
+        return parserFuncMap.find(s)->second;
     }
 }
 
@@ -1260,10 +1275,10 @@ std::shared_ptr<Expression> Parser::parse(const std::vector<std::string>& tokens
             isParsed = true;
         }
         
-        auto range = getIter(tokens[i]);
-        for (auto it = range.first; it != range.second && !isParsed; it++)
+        auto&& parsers = getIter(tokens[i]);
+        for (auto& it : parsers)
         {
-            isParsed |= it->second.first(tokens, stack, i, *it->second.second);
+            isParsed |= it.first(tokens, stack, i, *it.second);
         }
 
         if (!isParsed)
