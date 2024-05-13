@@ -829,11 +829,37 @@ void LeftOptionExpression::initHash()
 {
     auto msLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::SHILDED));
     auto mpLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::PROJecting));
-
+    auto mAngleLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::ANGLE));
+    auto mAreaLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::AREA));
+    auto mCoincideLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::COINCIDENT_EDGE));
+    auto mCoin2Limit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::COINCIDENT_INSIDE_OR_OUTSIDE_EDGE));
+    auto mEncloseLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::ENCLOSE));
+    auto minsideLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::INSIDE));
+    auto mOutsideLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::OUTSIDE));
+    auto minsideEdgeLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::INSIDE_EDGE));
+    auto mOutsideEdgeLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::OUTSIDE_EDGE));
+    auto mInteractLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::INTERACT));
+    auto mLengthLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::LENGTH));
+    auto mTouchLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::TOUCH));
+    auto mTouchEdgeLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::TOUCH_EDGE));
+    auto mWithEdgeLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::WITH_EDGE));
 
     hash.insert({ "NOT", PREPTR("NOT", ExpressionType::LEFT_OPTION, NonTerminalExpressionType::NOT, "PROJecting", 1, 1, LIMITLIST(mpLimit))});
     hash.insert({ "EXCLUDE", PREPTR("EXCLUDE", ExpressionType::LEFT_OPTION, NonTerminalExpressionType::EXCLUDE, "SHILDED", 1, 1, LIMITLIST(msLimit))});
-    //hash.insert({"NOT", PREPTR("NOT", ExpressionType::LEFT_ADD_OPTION, NonTerminalExpressionType::NOT, "PROJecting", 1, 1, LIMITLIST(mpLimit))});
+    hash.insert({"NOT", PREPTR("NOT", ExpressionType::LEFT_ADD_OPTION, NonTerminalExpressionType::NOT, "ANGLE", 1, 1, LIMITLIST(mAngleLimit))});
+    hash.insert({"NOT", PREPTR("NOT", ExpressionType::LEFT_ADD_OPTION, NonTerminalExpressionType::NOT, "AREA", 1, 1, LIMITLIST(mAreaLimit))});
+    hash.insert({"NOT", PREPTR("NOT", ExpressionType::LEFT_ADD_OPTION, NonTerminalExpressionType::NOT, "COINCIDENT_EDGE", 1, 1, LIMITLIST(mCoincideLimit))});
+    hash.insert({"NOT", PREPTR("NOT", ExpressionType::LEFT_ADD_OPTION, NonTerminalExpressionType::NOT, "COINCIDENT_INSIDE_OR_OUTSIDE_EDGE", 1, 1, LIMITLIST(mCoin2Limit))});
+    hash.insert({"NOT", PREPTR("NOT", ExpressionType::LEFT_ADD_OPTION, NonTerminalExpressionType::NOT, "ENCLOSE", 1, 1, LIMITLIST(mEncloseLimit))});
+    hash.insert({"NOT", PREPTR("NOT", ExpressionType::LEFT_ADD_OPTION, NonTerminalExpressionType::NOT, "INSIDE", 1, 1, LIMITLIST(minsideLimit))});
+    hash.insert({"NOT", PREPTR("NOT", ExpressionType::LEFT_ADD_OPTION, NonTerminalExpressionType::NOT, "OUTSIDE", 1, 1, LIMITLIST(mOutsideLimit))});
+    hash.insert({"NOT", PREPTR("NOT", ExpressionType::LEFT_ADD_OPTION, NonTerminalExpressionType::NOT, "INSIDE_EDGE", 1, 1, LIMITLIST(minsideEdgeLimit))});
+    hash.insert({"NOT", PREPTR("NOT", ExpressionType::LEFT_ADD_OPTION, NonTerminalExpressionType::NOT, "OUTSIDE_EDGE", 1, 1, LIMITLIST(mOutsideEdgeLimit))});
+    hash.insert({"NOT", PREPTR("NOT", ExpressionType::LEFT_ADD_OPTION, NonTerminalExpressionType::NOT, "INTERACT", 1, 1, LIMITLIST(mInteractLimit))});
+    hash.insert({"NOT", PREPTR("NOT", ExpressionType::LEFT_ADD_OPTION, NonTerminalExpressionType::NOT, "LENGTH", 1, 1, LIMITLIST(mLengthLimit))});
+    hash.insert({"NOT", PREPTR("NOT", ExpressionType::LEFT_ADD_OPTION, NonTerminalExpressionType::NOT, "TOUCH", 1, 1, LIMITLIST(mTouchLimit))});
+    hash.insert({"NOT", PREPTR("NOT", ExpressionType::LEFT_ADD_OPTION, NonTerminalExpressionType::NOT, "TOUCH_EDGE", 1, 1, LIMITLIST(mTouchEdgeLimit))});
+    hash.insert({"NOT", PREPTR("NOT", ExpressionType::LEFT_ADD_OPTION, NonTerminalExpressionType::NOT, "WITH_EDGE", 1, 1, LIMITLIST(mWithEdgeLimit))});
 }
 
 // LogicalExpression
@@ -1367,8 +1393,17 @@ bool LeftOptionExpression::parser(const std::vector<std::string>& tokens, std::s
         NonterminalExpression* exp = dynamic_cast<NonterminalExpression*>(stack.top().get());
         if (exp && exp->getOp() == path.getCondition())
         {
-            std::vector<std::shared_ptr<Expression>> childs;
-            exp->getChildren()->push_back(std::make_shared<LeftOptionExpression>(tokens[i], path.getNType(), childs));
+            std::string key = tokens[i];
+            LogicalExpression* chi = dynamic_cast<LogicalExpression*>(exp);
+            if (exp && key == "NOT")
+            {
+                chi->setNotFlag(true);
+            }
+            else
+            {
+                std::vector<std::shared_ptr<Expression>> childs;
+                exp->getChildren()->push_back(std::make_shared<LeftOptionExpression>(key, path.getNType(), childs));
+            }
             return true;
         }
     }
