@@ -29,8 +29,8 @@ namespace interpreter {
         CONVEX_OPTIONS,
         LENGTH_OPTION,
         SIZE_OPTION,
-        GROW_OPTION,
-        BY_OPTION,
+        DIRECTION_OPTION,
+        JOINED_OPTION,
         RESULT_TYPE_END
     };
 
@@ -64,6 +64,26 @@ namespace interpreter {
         EXTERNAL,
         INTERNAL_SELF,
         EXTERNAL_SELF,
+        AREA,
+        INSIDE,
+        OUTSIDE,
+        INSIDE_EDGE,
+        OUTSIDE_EDGE,
+        COPY,
+        DENSITY,
+        COINCIDENT_EDGE,
+        COINCIDENT_INSIDE_OR_OUTSIDE_EDGE,
+        EXPAND_EDGE,
+        OR_EDGE,
+        POLYGON,
+        RECTANGLE,
+        ROTATE,
+        SHIFT,
+        SHRINK,
+        TOUCH,
+        TOUCH_EDGE,
+        WITH_EDGE,
+        EXTENT,
         //left class
         NOT_LEFT,
         EXCLUDE,
@@ -108,6 +128,19 @@ namespace interpreter {
         REPORT,
         NEW_REPORT,
         //
+        CENTERS,
+        INSIDE_OPTION,
+        OF,
+        LAYER_OPTION,
+        FACTOR,
+        EXTEND,
+        CORNER,
+        FILL,
+        INSIDE_BY,
+        OUTSIDE_BY,
+        ALSO,
+        ONLY,
+        ENDPOINT,
         NTYPE_END
     };
 

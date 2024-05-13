@@ -301,25 +301,20 @@ namespace interpreter {
     };
 
     //
-    class BYExpression : public NonterminalExpression {
+    class JoinedExpression : public NonterminalExpression {
     public:
-        BYExpression(std::string op, NonTerminalExpressionType id, std::vector<std::shared_ptr<Expression>> childs) : NonterminalExpression(op, id, childs) {
-            setType(ExpressionType::BY_OPTION);
+        JoinedExpression(std::string op, NonTerminalExpressionType id, std::vector<std::shared_ptr<Expression>> childs) : NonterminalExpression(op, id, childs) {
+            setType(ExpressionType::JOINED_OPTION);
         }
-        std::string interpret() override {
-            std::ostringstream result;
-            double value = std::stod(children->at(0)->interpret());
-            result << std::fixed << std::setprecision(4) << value;
-            return result.str();
-        }
+        std::string interpret() override;
         static std::unordered_map<std::string, std::shared_ptr<PreExpressionInfo>> hash;
         static void initHash();
     };
 
-    class GrowOptionExpression : public NonterminalExpression {
+    class DirectionOptionExpression : public NonterminalExpression {
     public:
-        GrowOptionExpression(std::string op, NonTerminalExpressionType id, std::vector<std::shared_ptr<Expression>> childs) : NonterminalExpression(op, id, childs) {
-            setType(ExpressionType::GROW_OPTION);
+        DirectionOptionExpression(std::string op, NonTerminalExpressionType id, std::vector<std::shared_ptr<Expression>> childs) : NonterminalExpression(op, id, childs) {
+            setType(ExpressionType::DIRECTION_OPTION);
         }
 
         std::string interpret() override {
@@ -373,20 +368,6 @@ namespace interpreter {
         static void initHash();
     };
 
-    class ExtentOptionExpression : public NonterminalExpression {
-    public:
-        ExtentOptionExpression(std::string op, NonTerminalExpressionType d, std::vector<std::shared_ptr<Expression>> childs) : NonterminalExpression(op, d, childs) {
-            setType(ExpressionType::EXTENT);
-        }
-
-        std::string interpret() override {
-            return (getNType() == NonTerminalExpressionType::EXTENTS) ? "0.1" : children->at(0)->interpret();
-        }
-
-        static std::unordered_map<std::string, std::shared_ptr<PreExpressionInfo>> hash;
-        static void initHash();
-    };
-
     class RelationsOptionExpression : public NonterminalExpression {
     public:
         RelationsOptionExpression(std::string str, NonTerminalExpressionType id, std::vector<std::shared_ptr<Expression>> childs);
@@ -414,24 +395,31 @@ namespace interpreter {
     };
 
     class LogicalExpression : public NonterminalExpression {
-    private:
-        bool NotFlag = false;
-    public:
+        public :
+        using LogicInterpreter = std::function<std::string(LogicalExpression*)>;
+    
         LogicalExpression(std::string op, NonTerminalExpressionType d, std::vector<std::shared_ptr<Expression>> childs);
 
         std::string interpret() override;
 
-        void LogicSelfinterpreter(std::ostringstream &result);
+        static std::string LogicSelfinterpreter(LogicalExpression* exp);
 
-        void RelationsInterpreter(std::ostringstream& result, int mode);
+        static std::string RelationsInterpreter(LogicalExpression* exp);
 
-        void ConvexDetailInterpreter(std::ostringstream& result);
+        static std::string ConvexDetailInterpreter(LogicalExpression* exp);
 
-        void ConvexInterpreter(std::ostringstream& result);
+        static std::string ConvexInterpreter(LogicalExpression* exp);
 
-        void GrowInterpreter(std::ostringstream& result);
-
-        void setOption(int c, bool r = false, bool d = false);
+        static std::string GrowInterpreter(LogicalExpression* exp);
+        static std::string CommonInterpreter(LogicalExpression* exp);
+        static std::string SetOptions2Interpreter(LogicalExpression* exp);
+        static std::string SetOptions0Interpreter(LogicalExpression* exp);
+        static std::string SetOptions1Interpreter(LogicalExpression* exp);
+        static std::string ExtentsInterpreter(LogicalExpression* exp);
+        static std::string ByNameInterpreter(LogicalExpression* exp);
+        static std::string CoincidentInterpreter(LogicalExpression* exp);
+        static std::string ExpandEdgeInterpreter(LogicalExpression* exp);
+        void setOption(int c, bool d = false, bool a = false);
 
         void setNotFlag(bool flag);
 
@@ -439,11 +427,15 @@ namespace interpreter {
 
         //getCondition
         std::string GetCondition();
+        std::string GetName();
 
-        void ANDSelfInterpreter(std::ostringstream& result);
+        static std::string ANDSelfInterpreter(LogicalExpression* exp);
 
         static std::unordered_multimap<std::string, std::shared_ptr<PreExpressionInfo>> hash;
         static void initHash();
+    private:
+        static std::unordered_map<NonTerminalExpressionType, LogicInterpreter> logicInterpreterMap;
+        bool NotFlag = false;
     };
 
     //context class
