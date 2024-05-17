@@ -21,6 +21,12 @@ bool Parser::parser<LeftOptionExpression>(const std::vector<std::string>& tokens
     return LeftOptionExpression::parser(tokens, stack, i, path);
 }
 
+template<>
+bool Parser::parser<PolygonExpression>(const std::vector<std::string>& tokens, std::stack<std::shared_ptr<Expression>>& stack, int& i, PreExpressionInfo& path)
+{
+    return PolygonExpression::parser(tokens, stack, i, path);
+}
+
 //
 std::unordered_map<std::string, std::shared_ptr<InterPreterSingle>> Interpreter::interpreterMap = {};
 bool Interpreter::isParserInit = false;
@@ -1248,6 +1254,7 @@ void LogicalExpression::initHash()
     auto oextLimit = LIMIT(false, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::EXTENDED));
     auto oConLimit = LIMIT(false, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::CORNER));
     auto mBYLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::BY));
+    auto mnLimit = LIMIT(true, EXPRESSIONNUMBERLIMIT);
 
     auto andselfLimit = LIMITLIST(mlLimit, mcLimit);
     auto andLimit = LIMITLIST(mlLimit, olLimit);
@@ -1299,7 +1306,6 @@ void LogicalExpression::initHash()
     hash.insert({"COINCIDENT", PREPTR("COINCIDENT", ExpressionType::LAYER_NAME, NonTerminalExpressionType::COINCIDENT_INSIDE_OR_OUTSIDE_EDGE, "coincidentinsideedge", 1, 1, LIMITLIST(mCoinLimit))});
     hash.insert({"EXPAND", PREPTR("EXPAND", ExpressionType::LAYER_NAME, NonTerminalExpressionType::EXPAND_EDGE, "expand", 2, 4, LIMITLIST(mlLimit, mioLimit, oextLimit, oConLimit))});
     hash.insert({"OR", PREPTR("OR_EDGE", ExpressionType::LAYER_NAME, NonTerminalExpressionType::OR_EDGE, "OR_EDGE", 2, 2, LIMITLIST(mlLimit, mlLimit))});
-    hash.insert({"POLYGON", PREPTR("POLYGON", ExpressionType::LAYER_NAME, NonTerminalExpressionType::POLYGON, "polygon", 1, 1, LIMITLIST(mlLimit))});
     hash.insert({"RECTANGLE", PREPTR("RECTANGLE", ExpressionType::LAYER_NAME, NonTerminalExpressionType::RECTANGLE, "rectangle", 1, 1, LIMITLIST(mlLimit))});
     hash.insert({"ROTATE", PREPTR("ROTATE", ExpressionType::LAYER_NAME, NonTerminalExpressionType::ROTATE, "rotate", 2, 2, LIMITLIST(mlLimit, mBYLimit))});
     hash.insert({"SHIFT", PREPTR("SHIFT", ExpressionType::LAYER_NAME, NonTerminalExpressionType::SHIFT, "shift", 2, 2, LIMITLIST(mlLimit, mBYLimit))});
@@ -1550,7 +1556,7 @@ std::shared_ptr<Expression> Parser::parse(const std::vector<std::string>& tokens
         }
         else
         {
-            throw std::runtime_error(fmt::format("The expressiontype  {}  {} {} is not supported!", left->getType(), fix->getOp(), right->getType()));
+            throw std::runtime_error(fmt::format("The expressiontype  {} {} {} is not supported!", left->getType(), fix->getOp(), right->getType()));
         }
         stack.push(std::shared_ptr<Expression>(fix));
     }
@@ -1873,6 +1879,7 @@ void Interpreter::ParserInit()
     Parser::Register2Parser<LogicalExpression>();
     Parser::Register2Parser<InputExpression>();
     Parser::Register2Parser<OutputExpression>();
+    Parser::Register2Parser<PolygonExpression>();
 }
 
 void Interpreter::Init()
@@ -2019,3 +2026,105 @@ int main()
     return 0;
 }
 
+std::string interpreter::PolygonExpression::interpret()
+{
+    return fmt::format("{}({}, {}, {}, {}, {}, {})", op, children->at(5)->interpret(), children->at(0)->interpret(), 
+        children->at(1)->interpret(), children->at(2)->interpret(), children->at(3)->interpret(), children->at(4)->interpret());
+}
+
+bool interpreter::PolygonExpression::parser(const std::vector<std::string> &tokens, std::stack<std::shared_ptr<Expression>> &stack, int &i, PreExpressionInfo &path)
+{
+    if (stack.size() < 5)
+    {
+        throw std::runtime_error("The expression is not supported!");
+        return false;
+    }
+
+    std::vector<std::shared_ptr<Expression>> childs;
+    std::shared_ptr<std::vector<Point>> points = std::make_shared<std::vector<Point>>(); 
+    for (int j = 0; j < 4; j++)
+    {
+        auto exp = stack.top();
+        if (!ExpressionOptionLimit::isNumberMatch(exp.get(), childs, 0))
+        {
+            for (size_t k = childs.size() - 1; k >= 0 ; k--)
+            {
+                stack.push(childs[k]);
+            }
+            return false;
+        }
+        
+        childs.push_back(exp);
+        if (j%2 == 0)
+        {
+            points->push_back(Point());
+            points->back().x = std::stod(exp->interpret());
+        }
+        else
+        {
+            points->back().y = std::stod(exp->interpret());
+        }
+        
+        stack.pop();
+    }
+
+    while (stack.size() > 2 && ExpressionOptionLimit::isNumberMatch(stack.top().get(), childs, 0))
+    {
+        points->push_back(Point());
+        points->back().x = std::stod(stack.top()->interpret());
+        stack.pop();
+        if (ExpressionOptionLimit::isNumberMatch(stack.top().get(), childs, 0))
+        {
+            points->back().y = std::stod(stack.top()->interpret());
+            stack.pop();
+        }
+        else
+        {
+            points->pop_back();
+            break;
+        }
+    }
+
+    std::ostringstream psStr;
+    psStr << "[ ";
+    for (auto i = 0; i < points->size(); i++)
+    {
+        psStr << fmt::format("p({}, {})", points->at(i).x, points->at(i).y);
+        if (i != points->size() - 1)
+        {
+            psStr << ", ";
+        }
+    }
+    psStr << " ]";
+    childs.push_back(std::make_shared<TerminalExpression>(psStr.str()));
+
+    auto limit = path.getLimits().back();
+    if (limit->isMatch(stack.top().get(), childs))
+    {
+        childs.push_back(stack.top());
+        stack.pop();
+    }
+    else
+    {
+        for (size_t k = childs.size() - 1; k >= 0 ; k--)
+        {
+            stack.push(childs[k]);
+        }
+        return false;
+    }
+
+    stack.push(std::make_shared<PolygonExpression>(tokens[i], path.getNType(), childs));
+    
+    return true;
+}
+
+//polygon hash
+std::unordered_map<std::string, std::shared_ptr<PreExpressionInfo>> interpreter::PolygonExpression::hash = {};
+
+void interpreter::PolygonExpression::initHash()
+{
+    auto mnLimit = LIMIT(true, EXPRESSIONNUMBERLIMIT);
+    auto mlLimit = LIMIT(true, EXPRESSIONTYPELIMIT(ExpressionType::LAYER_NAME, ExpressionType::REGION_LAYER_NAME, ExpressionType::EDGE_LAYER_NAME));
+    auto polygonLimit = LIMITLIST(mnLimit, mnLimit, mnLimit, mnLimit, mlLimit);
+    hash.insert({"POLYGON", PREPTR("POLYGON", ExpressionType::LAYER_NAME, NonTerminalExpressionType::POLYGON, "POLYGON", 5, 5, std::move(polygonLimit))});
+}

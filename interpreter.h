@@ -216,8 +216,6 @@ namespace interpreter {
         static void initHash();
     };
 
-
-
     class ComparatorExpression : public NonterminalExpression {
     private:
         bool isDoubleDirection;
@@ -299,6 +297,21 @@ namespace interpreter {
         static std::unordered_multimap<std::string, std::shared_ptr<PreExpressionInfo>> hash;
         static void initHash();
     };
+
+
+    //polygon表达式
+    class PolygonExpression : public NonterminalExpression {
+    public:
+        PolygonExpression(std::string op, NonTerminalExpressionType id, std::vector<std::shared_ptr<Expression>> childs) : NonterminalExpression(op, id, childs) {
+            setType(ExpressionType::LAYER_NAME);
+        }
+        std::string interpret() override;
+        static bool parser(const std::vector<std::string>& tokens, std::stack<std::shared_ptr<Expression>>& stack, int& i, PreExpressionInfo& path);
+        static std::unordered_map<std::string, std::shared_ptr<PreExpressionInfo>> hash;
+        static void initHash();
+    };
+
+
 
     //
     class JoinedExpression : public NonterminalExpression {

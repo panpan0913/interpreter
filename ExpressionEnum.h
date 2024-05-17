@@ -157,7 +157,6 @@ namespace interpreter {
 #define INTERPRETERRUNNINGSTATE 1
 #define INTERPRETERPAUSINGSTATE 2
 
-
 #define LIMIT(b,  ...) std::make_shared<ExpressionOptionLimit>(b, std::unordered_map<ExpressionLimitType, std::any>{__VA_ARGS__})
 #define EXPRESSIONTYPELIMIT(...) {ExpressionLimitType::EXPRESSION_TYPE_LIMIT, std::vector<ExpressionType>{__VA_ARGS__}}
 #define NEXPRESSIONTYPELIMIT(...) {ExpressionLimitType::NEXPRESSION_TYPE_LIMIT, std::vector<NonTerminalExpressionType>{__VA_ARGS__}}
@@ -166,5 +165,16 @@ namespace interpreter {
 #define NEXPRESSIONONEINNLIMIT(...) {ExpressionLimitType::NEXPRESSION_ONE_IN_N_LIMIT, std::vector<NonTerminalExpressionType>{__VA_ARGS__}}
 #define LIMITLIST(...) std::make_shared<std::vector<std::shared_ptr<ExpressionOptionLimit>>>(std::vector<std::shared_ptr<ExpressionOptionLimit>>{__VA_ARGS__})
 #define PREPTR std::make_shared<PreExpressionInfo>
+
+struct  StructPoint{
+    double x;
+    double y;
+    StructPoint(double x, double y) : x(x), y(y) {}
+    StructPoint() : x(0), y(0) {}
+};
+
+using Point = StructPoint;
+
+
 
 #endif
