@@ -3,6 +3,8 @@
 
 using namespace interpreter;
 
+auto interpreter_logger = spdlog::rotating_logger_mt("interpreter_logger", "interpreter.log", 1024 * 1024 * 5, 10);
+
 static const double DOUBLE_MAX = std::numeric_limits<double>::max();
 static const double DOUBLE_MIN = std::numeric_limits<double>::min();
 
@@ -1305,7 +1307,7 @@ void LogicalExpression::initHash()
     hash.insert({"COINCIDENT", PREPTR("COINCIDENTEDGE", ExpressionType::LAYER_NAME, NonTerminalExpressionType::COINCIDENT_EDGE, "coincidentedge", 3, 3, LIMITLIST(mEdgeLimit, mlLimit, mlLimit))});
     hash.insert({"COINCIDENT", PREPTR("COINCIDENT", ExpressionType::LAYER_NAME, NonTerminalExpressionType::COINCIDENT_INSIDE_OR_OUTSIDE_EDGE, "coincidentinsideedge", 1, 1, LIMITLIST(mCoinLimit))});
     hash.insert({"EXPAND", PREPTR("EXPAND", ExpressionType::LAYER_NAME, NonTerminalExpressionType::EXPAND_EDGE, "expand", 2, 4, LIMITLIST(mlLimit, mioLimit, oextLimit, oConLimit))});
-    hash.insert({"OR", PREPTR("OR_EDGE", ExpressionType::LAYER_NAME, NonTerminalExpressionType::OR_EDGE, "OR_EDGE", 2, 2, LIMITLIST(mlLimit, mlLimit))});
+    hash.insert({"OR", PREPTR("OR", ExpressionType::LAYER_NAME, NonTerminalExpressionType::OR_EDGE, "OR_EDGE", 2, 2, LIMITLIST(mlLimit, mlLimit))});
     hash.insert({"RECTANGLE", PREPTR("RECTANGLE", ExpressionType::LAYER_NAME, NonTerminalExpressionType::RECTANGLE, "rectangle", 1, 1, LIMITLIST(mlLimit))});
     hash.insert({"ROTATE", PREPTR("ROTATE", ExpressionType::LAYER_NAME, NonTerminalExpressionType::ROTATE, "rotate", 2, 2, LIMITLIST(mlLimit, mBYLimit))});
     hash.insert({"SHIFT", PREPTR("SHIFT", ExpressionType::LAYER_NAME, NonTerminalExpressionType::SHIFT, "shift", 2, 2, LIMITLIST(mlLimit, mBYLimit))});
@@ -1401,7 +1403,7 @@ bool LeftOptionExpression::parser(const std::vector<std::string>& tokens, std::s
         {
             std::string key = tokens[i];
             LogicalExpression* chi = dynamic_cast<LogicalExpression*>(exp);
-            if (exp && key == "NOT")
+            if (chi && key == "NOT")
             {
                 chi->setNotFlag(true);
             }
@@ -1667,8 +1669,8 @@ std::string InterPreterSingle::Start()
 {
     lines = readLines();
     thread = std::thread(&InterPreterSingle::run, this);
-    std::cout<< "line: " << __LINE__ << std::endl;
     setRuningState(1);
+    interpreter_logger->info("Start the interpreter thread");
     return "OK";
 }
 
@@ -1677,8 +1679,8 @@ void InterPreterSingle::Pause()
 {
     std::unique_lock<std::mutex> lock(mtx);
     paused = true;
-    std::cout<< "line: " << __LINE__ << std::endl;
     setRuningState(2);
+    interpreter_logger->info("Pause the interpreter thread");
 }
 
 // 继续线程
@@ -1686,7 +1688,7 @@ void InterPreterSingle::resume()
 {
     std::unique_lock<std::mutex> lock(mtx);
     paused = false;
-    std::cout<< "line: " << __LINE__ << std::endl;
+    interpreter_logger->info("Resume the interpreter thread");
     setRuningState(1);
     cv.notify_all();
 }
@@ -1698,7 +1700,7 @@ void InterPreterSingle::stop()
         std::unique_lock<std::mutex> lock(mtx);
         paused = false;
         stopped = true;
-        std::cout<< "line: " << __LINE__ << std::endl;
+        interpreter_logger->info("Stop the interpreter thread");
         setRuningState(0);
         cv.notify_all();
     }
@@ -1720,7 +1722,7 @@ void InterPreterSingle::run()
             if (breakLine == i)
             {
                 paused = true;
-                std::cout<< "line: " << __LINE__ << std::endl;
+                interpreter_logger->info("Break the interpreter thread");
 				setRuningState(2);
             }
             else if (breakLine < i && breakLine != -1)
@@ -1730,7 +1732,7 @@ void InterPreterSingle::run()
             }
         }
         {
-            //std::cout << "paused: " << paused << std::endl;
+            interpreter_logger->debug("Wait for the interpreter thread paused: {}", paused);
             std::unique_lock<std::mutex> lock(mtx);
             cv.wait(lock, [this] { return !paused; });
         }
@@ -1743,7 +1745,7 @@ void InterPreterSingle::run()
         {
             bOK = false;
             errStr += "Line " + std::to_string(i + 1) + ": " + e.what() + "\n";
-            std::cerr << "Line " << i + 1 << ": " << e.what() << std::endl;
+            interpreter_logger->error("Line {}: {}", i + 1, e.what());
         }
     }
     if (bOK)
@@ -1754,34 +1756,40 @@ void InterPreterSingle::run()
             while (!stopped)
             {
                 {
-                    //std::cout << "paused: " << paused << std::endl;
+                    interpreter_logger->debug("Wait for the interpreter thread paused: {}", paused);
                     std::unique_lock<std::mutex> lock(mtx);
                     isBreak = true;
                     cv.notify_all();
                     cv.wait(lock, [this] { return !paused; });
                 }
                 char * klayoutPath = getenv("KLAYOUT_PATH");
-                std::cout << klayoutPath << std::endl;
-                std::string klayoutrun = "/home/zhangpan/桌面/klayout/bin/klayout -b -r " + path + "_KL.drc";
-                //std::string klayoutrun = "sudo "+ std::string(klayoutPath) + "/klayout -b -r tp.drc";
-                std::cout << klayoutrun << std::endl;
+                if (klayoutPath == NULL)
+                {
+                    std::cerr << "The environment variable KLAYOUT_PATH is not set!" << '\n';
+                    interpreter_logger->error("The environment variable KLAYOUT_PATH is not set!");
+                    return;
+                }
+                
+                std::string klayoutrun = fmt::format("{0}klayout -b -r {1}_KL.drc", klayoutPath, path);
+                interpreter_logger->info("Run the klayout command: {}", klayoutrun);
                 int result = system(klayoutrun.c_str());
                 if (result != 0)
                 {
-                    std::cerr << "Failed to run klayout command: " << klayoutrun << '\n';
+                    interpreter_logger->error("The klayout command is failed! return {}", result);
                 }
                 isSuccessful = true;
                 {
                     std::unique_lock<std::mutex> lock(mtx);
                     paused = true;
-                    std::cout<< "line: " << __LINE__ << std::endl;
+                    interpreter_logger->info("Pause the interpreter thread for the klayout run");
                     setRuningState(0);
                 }
             }
         }
         catch (const std::exception& e)
         {
-            std::cerr << e.what() << '\n';
+            errStr += e.what();
+            interpreter_logger->error("{}", e.what());
         }
     }
 }
@@ -1789,11 +1797,12 @@ void InterPreterSingle::run()
 // 根据输入文件名读取一个文本文件
 std::string InterPreterSingle::read()
 {
-    std::string s = path + ".drc";
+    std::string s = fmt::format("{0}.drc", path);
     std::ifstream file(s);
     if (!file.is_open())
     {
-        std::string err = "Line 950: The file " + s + " is not found!";
+        std::string err = fmt::format("The file {0} is not found!", s);
+        interpreter_logger->error("{}", err);
         throw std::runtime_error(err.c_str());
     }
     std::string str((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
@@ -1803,11 +1812,12 @@ std::string InterPreterSingle::read()
 // 根据输入文件名写一个文本文件
 void InterPreterSingle::write()
 {
-    std::string s = path + "_KL.drc";
+    std::string s = fmt::format("{0}_KL.drc", path);
     std::ofstream file(s);
     if (!file.is_open())
     {
-        std::string err = "Line 961: The file " + s + " is not found!";
+        std::string err = fmt::format("The file {0} is not found!", s);
+        interpreter_logger->error("{}", err);
         throw std::runtime_error(err.c_str());
     }
     auto ls = std::vector<std::string>();
@@ -1815,7 +1825,7 @@ void InterPreterSingle::write()
     {
         ls.push_back(expressions[i]->interpret());
     }
-    std::string out = "# %include drcrule.drc\n\n" + join(ls);
+    std::string out =fmt::format("# %include drcrule.drc\n\n{}", join(ls));
     file << out;
     chmod(s.c_str(), 0777);
 }
@@ -1856,7 +1866,7 @@ void InterPreterSingle::SetBreakPoint(int line)
     breakLine = line;
     isBreak = false;
     paused = false;
-    std::cout<< "line: " << __LINE__ << std::endl;
+    interpreter_logger->info("Set the interpreter thread break point: {}", line);
     setRuningState(1);
     cv.notify_all();
 }
@@ -1880,12 +1890,14 @@ void Interpreter::ParserInit()
     Parser::Register2Parser<InputExpression>();
     Parser::Register2Parser<OutputExpression>();
     Parser::Register2Parser<PolygonExpression>();
+    interpreter_logger->info("The parser is initialized!");
 }
 
 void Interpreter::Init()
 {
     if (!isParserInit)
     {
+        interpreter_logger->set_level(spdlog::level::debug);
         ParserInit();
         isParserInit = true;
     }
@@ -2086,16 +2098,14 @@ bool interpreter::PolygonExpression::parser(const std::vector<std::string> &toke
     }
 
     std::ostringstream psStr;
-    psStr << "[ ";
     for (auto i = 0; i < points->size(); i++)
     {
-        psStr << fmt::format("p({}, {})", points->at(i).x, points->at(i).y);
+        psStr << fmt::format("p({:.4}, {:.4})", points->at(i).x, points->at(i).y);
         if (i != points->size() - 1)
         {
             psStr << ", ";
         }
     }
-    psStr << " ]";
     childs.push_back(std::make_shared<TerminalExpression>(psStr.str()));
 
     auto limit = path.getLimits().back();
