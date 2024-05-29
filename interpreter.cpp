@@ -621,14 +621,14 @@ void OutputExpression::initHash()
     auto oTargetLimit = LIMIT(false, EXPRESSIONTYPELIMIT(ExpressionType::TARGET_NAME));
     auto oReportLimit = LIMIT(true, EXPRESSIONTYPELIMIT(ExpressionType::REPORT_NAME));
 
-    auto outputLimits = LIMITLIST(mlLimit, mnLimit, onLimit, oTargetLimit);
+    auto outputLimits = LIMITLIST(mlLimit, mnLimit, onLimit, otLimit, oTargetLimit);
     auto outputLimits0 = LIMITLIST(mlLimit, mtLimit, otLimit, oReportLimit);
     auto targetLimits = LIMITLIST(mtLimit);
     auto newTargetLimits = LIMITLIST(mtLimit);
     auto reportLimits = LIMITLIST(mtLimit, otLimit);
     auto newReportLimits = LIMITLIST(mtLimit, otLimit);
 
-    hash.insert({ "OUTPUT", PREPTR("OUTPUT", ExpressionType::ORIGIONAL, NonTerminalExpressionType::OUTPUT, "output", 2, 4, std::move(outputLimits)) });
+    hash.insert({ "OUTPUT", PREPTR("OUTPUT", ExpressionType::ORIGIONAL, NonTerminalExpressionType::OUTPUT, "output", 2, 5, std::move(outputLimits)) });
     hash.insert({ "OUTPUT", PREPTR("OUTPUT", ExpressionType::ORIGIONAL, NonTerminalExpressionType::OUTPUT, "output", 2, 4, std::move(outputLimits0))});
     hash.insert({ "TARGET", PREPTR("TARGET", ExpressionType::TARGET_NAME, NonTerminalExpressionType::TARGET, "target", 1, 1, std::move(targetLimits)) });
     hash.insert({ "NEWTARGET", PREPTR("NEWTARGET", ExpressionType::TARGET_NAME, NonTerminalExpressionType::NEW_TARGET, "new_target", 1, 1, std::move(newTargetLimits)) });
@@ -687,14 +687,13 @@ std::string interpreter::JoinedExpression::interpret()
             std::ostringstream result;
             for (size_t i = 0; i < children->size(); i++)
             {
-                if (i == 0)
+                double val = std::stod(children->at(i)->interpret());
+                auto str = fmt::format("{:.4f}", val);
+                if (i != 0)
                 {
-                    result << children->at(i)->interpret();
+                    result << ", " ;
                 }
-                else
-                {
-                    result << ", " << children->at(i)->interpret();
-                }
+                result << str;
             }
             return result.str();
         }
@@ -1085,6 +1084,7 @@ std::string interpreter::LogicalExpression::ExtentsInterpreter(LogicalExpression
             result<< "2, " << chi->interpret();
         }
     }
+    result << ")";
     return result.str();
 }
 
@@ -1093,12 +1093,9 @@ std::string interpreter::LogicalExpression::ByNameInterpreter(LogicalExpression 
     auto children = exp->getChildren();
     std::ostringstream result;
     result << exp->GetName();
-    for (size_t i = 0; i < children->size(); i++)
+    result << "(";
+    for (size_t i = 1; i < children->size(); i++)
     {
-        if (i == 0)
-        {
-            result << "(";
-        }
         result << children->at(i)->interpret();
         if (i != children->size() - 1)
         {
@@ -1120,7 +1117,7 @@ std::string interpreter::LogicalExpression::CoincidentInterpreter(LogicalExpress
 std::string interpreter::LogicalExpression::ExpandEdgeInterpreter(LogicalExpression *exp)
 {
     auto children = exp->getChildren();
-    std::string i, o, e, b;
+    std::string i = "0.0", o="0.0", e="0.0", b="0.0";
     bool joined = false;
     for (auto &&child : *children)
     {
@@ -1147,7 +1144,19 @@ std::string interpreter::LogicalExpression::ExpandEdgeInterpreter(LogicalExpress
         }
     }
     
-    return fmt::format("EXPAND_EDGE({}, {}, {}, {}, {})", o, i, b, e, joined);
+    return fmt::format("EXPANDEDGE({}, {}, {}, {}, {}, {})", children->at(1)->interpret(), o, i, b, e, joined);
+}
+
+std::string interpreter::LogicalExpression::ExtentInterpreter(LogicalExpression *exp)
+{
+    if (exp->getChildren()->size() == 1)
+    {
+        return fmt::format("EXTENT({})", exp->getChildren()->at(0)->interpret());
+    }
+    else
+    {
+        return "EXTENT()";
+    }
 }
 
 std::string interpreter::LogicalExpression::SetOptions0Interpreter(LogicalExpression *exp)
@@ -1252,7 +1261,7 @@ void LogicalExpression::initHash()
                             NEXPRESSIONONEINNLIMIT(NonTerminalExpressionType::OPPOSITE, NonTerminalExpressionType::SQUARE));
     auto oExtLimit = LIMIT(false, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::CENTERS, NonTerminalExpressionType::INSIDE_OPTION));
     auto mCoinLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::INSIDE_EDGE, NonTerminalExpressionType::OUTSIDE_EDGE));
-    auto mioLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::INSIDE_BY, NonTerminalExpressionType::OUTSIDE_BY));
+    auto mioLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::INSIDE_BY, NonTerminalExpressionType::OUTSIDE_BY, NonTerminalExpressionType::BY));
     auto oextLimit = LIMIT(false, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::EXTENDED));
     auto oConLimit = LIMIT(false, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::CORNER));
     auto mBYLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::BY));
@@ -1306,7 +1315,7 @@ void LogicalExpression::initHash()
     hash.insert({"OUTSIDE", PREPTR("OUTSIDEEDGE", ExpressionType::LAYER_NAME, NonTerminalExpressionType::OUTSIDE_EDGE, "outsideedge", 3, 3, LIMITLIST(mEdgeLimit, mlLimit, mlLimit))});
     hash.insert({"COINCIDENT", PREPTR("COINCIDENTEDGE", ExpressionType::LAYER_NAME, NonTerminalExpressionType::COINCIDENT_EDGE, "coincidentedge", 3, 3, LIMITLIST(mEdgeLimit, mlLimit, mlLimit))});
     hash.insert({"COINCIDENT", PREPTR("COINCIDENT", ExpressionType::LAYER_NAME, NonTerminalExpressionType::COINCIDENT_INSIDE_OR_OUTSIDE_EDGE, "coincidentinsideedge", 1, 1, LIMITLIST(mCoinLimit))});
-    hash.insert({"EXPAND", PREPTR("EXPAND", ExpressionType::LAYER_NAME, NonTerminalExpressionType::EXPAND_EDGE, "expand", 2, 4, LIMITLIST(mlLimit, mioLimit, oextLimit, oConLimit))});
+    hash.insert({"EXPAND", PREPTR("EXPAND", ExpressionType::LAYER_NAME, NonTerminalExpressionType::EXPAND_EDGE, "expand", 3, 5, LIMITLIST(mEdgeLimit, mlLimit, mioLimit, oextLimit, oConLimit))});
     hash.insert({"OR", PREPTR("OR", ExpressionType::LAYER_NAME, NonTerminalExpressionType::OR_EDGE, "OR_EDGE", 2, 2, LIMITLIST(mlLimit, mlLimit))});
     hash.insert({"RECTANGLE", PREPTR("RECTANGLE", ExpressionType::LAYER_NAME, NonTerminalExpressionType::RECTANGLE, "rectangle", 1, 1, LIMITLIST(mlLimit))});
     hash.insert({"ROTATE", PREPTR("ROTATE", ExpressionType::LAYER_NAME, NonTerminalExpressionType::ROTATE, "rotate", 2, 2, LIMITLIST(mlLimit, mBYLimit))});
@@ -1314,14 +1323,15 @@ void LogicalExpression::initHash()
     hash.insert({"SHRINK", PREPTR("SHRINK", ExpressionType::LAYER_NAME, NonTerminalExpressionType::SHRINK, "shrink", 2, 5, std::move(shrinkLimit))});
     hash.insert({"TOUCH", PREPTR("TOUCH", ExpressionType::LAYER_NAME, NonTerminalExpressionType::TOUCH, "touch", 2, 2, LIMITLIST(mlLimit, mlLimit))});
     hash.insert({"TOUCH", PREPTR("TOUCHEDGE", ExpressionType::LAYER_NAME, NonTerminalExpressionType::TOUCH_EDGE, "touchedge", 3, 4, LIMITLIST(mEdgeLimit, mlLimit, mlLimit))});
-    hash.insert({"WITH", PREPTR("WITHEDGE", ExpressionType::LAYER_NAME, NonTerminalExpressionType::WITH_EDGE, "within", 2, 2, LIMITLIST(mlLimit, mlLimit))});
+    hash.insert({"WITH", PREPTR("WITHEDGE", ExpressionType::LAYER_NAME, NonTerminalExpressionType::WITH_EDGE, "within", 3, 3, LIMITLIST(mEdgeLimit, mlLimit, mlLimit))});
+    hash.insert({"DENSITY", PREPTR("DENSITY", ExpressionType::LAYER_NAME, NonTerminalExpressionType::DENSITY, "DENSITY", 2, 2, LIMITLIST(mlLimit, mlLimit))});
 
     logicInterpreterMap.insert({ NonTerminalExpressionType::AND_SELF, ANDSelfInterpreter});
     logicInterpreterMap.insert({ NonTerminalExpressionType::AND, LogicSelfinterpreter});
     logicInterpreterMap.insert({ NonTerminalExpressionType::OR, LogicSelfinterpreter});
     logicInterpreterMap.insert({ NonTerminalExpressionType::XOR, LogicSelfinterpreter});
     logicInterpreterMap.insert({ NonTerminalExpressionType::NOT, CommonInterpreter});
-    logicInterpreterMap.insert({ NonTerminalExpressionType::EXTENT, CommonInterpreter});
+    logicInterpreterMap.insert({ NonTerminalExpressionType::EXTENT, ExtentInterpreter});
     logicInterpreterMap.insert({ NonTerminalExpressionType::SIZE, CommonInterpreter});
     logicInterpreterMap.insert({ NonTerminalExpressionType::ENCLOSE, SetOptions2Interpreter});
     logicInterpreterMap.insert({ NonTerminalExpressionType::INTERACT, SetOptions2Interpreter});
@@ -1345,7 +1355,7 @@ void LogicalExpression::initHash()
     logicInterpreterMap.insert({ NonTerminalExpressionType::COINCIDENT_EDGE, ByNameInterpreter});
     logicInterpreterMap.insert({ NonTerminalExpressionType::COINCIDENT_INSIDE_OR_OUTSIDE_EDGE, CoincidentInterpreter});
     logicInterpreterMap.insert({ NonTerminalExpressionType::EXPAND_EDGE, ExpandEdgeInterpreter});
-    logicInterpreterMap.insert({ NonTerminalExpressionType::OR_EDGE, ByNameInterpreter});
+    logicInterpreterMap.insert({ NonTerminalExpressionType::OR_EDGE, CommonInterpreter});
     logicInterpreterMap.insert({ NonTerminalExpressionType::ROTATE, CommonInterpreter});
     logicInterpreterMap.insert({ NonTerminalExpressionType::SHIFT, CommonInterpreter});
     logicInterpreterMap.insert({ NonTerminalExpressionType::SHRINK, GrowInterpreter});
@@ -1494,6 +1504,12 @@ std::shared_ptr<Expression> Parser::parse(std::string& str, Context* context)
     {
         throw std::runtime_error("The expression is not supported!");
     }
+
+    if (str[0] == '#')
+    {
+        return std::make_shared<TerminalExpression>(str);
+    }
+    
     return parse(tokenize(str), context);
 }
 
@@ -1516,6 +1532,8 @@ std::shared_ptr<Expression> Parser::parse(const std::vector<std::string>& tokens
 {
     std::stack<std::shared_ptr<Expression>> stack;
     std::stack<std::shared_ptr<Expression>> fixStack;
+    
+
     for (int i = tokens.size() - 1; i >= 0; i--)
     {
         bool isParsed = false;
@@ -1669,7 +1687,7 @@ std::string InterPreterSingle::Start()
 {
     lines = readLines();
     thread = std::thread(&InterPreterSingle::run, this);
-    setRuningState(1);
+    setRuningState(INTERPRETERRUNNINGSTATE);
     interpreter_logger->info("Start the interpreter thread");
     return "OK";
 }
@@ -1679,7 +1697,7 @@ void InterPreterSingle::Pause()
 {
     std::unique_lock<std::mutex> lock(mtx);
     paused = true;
-    setRuningState(2);
+    setRuningState(INTERPRETERPAUSINGSTATE);
     interpreter_logger->info("Pause the interpreter thread");
 }
 
@@ -1689,7 +1707,7 @@ void InterPreterSingle::resume()
     std::unique_lock<std::mutex> lock(mtx);
     paused = false;
     interpreter_logger->info("Resume the interpreter thread");
-    setRuningState(1);
+    setRuningState(INTERPRETERRUNNINGSTATE);
     cv.notify_all();
 }
 
@@ -1701,7 +1719,7 @@ void InterPreterSingle::stop()
         paused = false;
         stopped = true;
         interpreter_logger->info("Stop the interpreter thread");
-        setRuningState(0);
+        setRuningState(INTERPRETERSTOPSTATE);
         cv.notify_all();
     }
     if (thread.joinable())
@@ -1723,7 +1741,7 @@ void InterPreterSingle::run()
             {
                 paused = true;
                 interpreter_logger->info("Break the interpreter thread");
-				setRuningState(2);
+				setRuningState(INTERPRETERPAUSINGSTATE);
             }
             else if (breakLine < i && breakLine != -1)
             {
@@ -1732,7 +1750,7 @@ void InterPreterSingle::run()
             }
         }
         {
-            interpreter_logger->debug("Wait for the interpreter thread paused: {}", paused);
+            interpreter_logger->trace("Wait for the interpreter thread paused: {}", paused);
             std::unique_lock<std::mutex> lock(mtx);
             cv.wait(lock, [this] { return !paused; });
         }
@@ -1756,7 +1774,7 @@ void InterPreterSingle::run()
             while (!stopped)
             {
                 {
-                    interpreter_logger->debug("Wait for the interpreter thread paused: {}", paused);
+                    interpreter_logger->trace("Wait for the interpreter thread paused: {}", paused);
                     std::unique_lock<std::mutex> lock(mtx);
                     isBreak = true;
                     cv.notify_all();
@@ -1782,14 +1800,15 @@ void InterPreterSingle::run()
                     std::unique_lock<std::mutex> lock(mtx);
                     paused = true;
                     interpreter_logger->info("Pause the interpreter thread for the klayout run");
-                    setRuningState(0);
+                    setRuningState(INTERPRETERINITSTATE);
                 }
             }
         }
         catch (const std::exception& e)
         {
             errStr += e.what();
-            interpreter_logger->error("{}", e.what());
+            interpreter_logger->error("failed in run: {}", e.what());
+            setRuningState(INTERPRETERSTOPSTATE);
         }
     }
 }
@@ -1867,7 +1886,7 @@ void InterPreterSingle::SetBreakPoint(int line)
     isBreak = false;
     paused = false;
     interpreter_logger->info("Set the interpreter thread break point: {}", line);
-    setRuningState(1);
+    setRuningState(INTERPRETERRUNNINGSTATE);
     cv.notify_all();
 }
 
@@ -1898,6 +1917,7 @@ void Interpreter::Init()
     if (!isParserInit)
     {
         interpreter_logger->set_level(spdlog::level::debug);
+        interpreter_logger->flush_on(spdlog::level::debug);
         ParserInit();
         isParserInit = true;
     }
@@ -2016,7 +2036,7 @@ int main()
     int state = 0;
     Interpreter::Init();
     std::cout << "Test Start!" << std::endl;
-    Interpreter::Run("test", [&state](int st) { state = st ; std::cout<< "State: " << state << std::endl; });
+    Interpreter::Run("test1", [&state](int st) { state = st ; std::cout<< "State: " << state << std::endl; });
 /*     std::cout << "Test Pause!" << std::endl;
     Interpreter::Pause("test");
     std::cout << "Test SetBreakPoint!" << std::endl;

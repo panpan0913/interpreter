@@ -156,6 +156,7 @@ namespace interpreter {
 #define INTERPRETERINITSTATE 0
 #define INTERPRETERRUNNINGSTATE 1
 #define INTERPRETERPAUSINGSTATE 2
+#define INTERPRETERSTOPSTATE 3
 
 #define LIMIT(b,  ...) std::make_shared<ExpressionOptionLimit>(b, std::unordered_map<ExpressionLimitType, std::any>{__VA_ARGS__})
 #define EXPRESSIONTYPELIMIT(...) {ExpressionLimitType::EXPRESSION_TYPE_LIMIT, std::vector<ExpressionType>{__VA_ARGS__}}

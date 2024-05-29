@@ -1,4 +1,3 @@
-
 # Read about DRC scripts in the User Manual in "Design Rule Check (DRC)"
 
 # This is a sample
@@ -89,7 +88,7 @@ end
 ###################################################
 
 def LENGTH(layer, con)
-  return layer.drc((con))
+  return layer.raw.drc((con))
 end
 
 def ENCLOSE(layer1, layer2, con)
@@ -108,12 +107,12 @@ def CONVEXEDGE_DETAIL(layer, acon1, acon2, lcon = length>0)
 end
   
 def CONVEXEDGE(layer, mode, lcon = length>0)
-  el = layer.drc(corners(as_edge_pairs) > 0)
+  el = layer.drc((corners(as_edge_pairs) > 0))
   case mode 
     when 1
-      return  el.polygons.drc(lcon)
+      return  el.polygons.drc(lcon)  & el.edges
     when 2
-      return (layer - el.polygons).drc(lcon)
+      return (layer - el.polygons).drc(lcon) & (layer.edges - el.edges)
   end
 end
 
@@ -136,4 +135,338 @@ end
 def INTERNAL_SELF(layer1, dcon, region = false,  ext = 0)
   return compute_distance(layer1, dcon, region, ext)
 end
- 
+
+##########################################################
+
+def AREA(layer, con)
+  return layer.drc(con)
+end
+
+def COINCIDENTEDGE(layer1, layer2)
+  return layer1.edges & layer2.edges
+end
+
+def COINCIDENTINSIDEEDGE(layer1, layer2)
+  return COINCIDENTEDGE(layer1, layer2) & (layer1 & layer2).edges
+end
+
+def COINCIDENTOUTSIDEEDGE(layer1, layer2)
+  return COINCIDENTEDGE(layer1, layer2) & (layer1 ^ layer2)
+end
+
+def NOTCOINCIDENTEDGE(layer1, layer2)
+  return layer1.edges + layer2.edges - layer1.edges & layer2.edges
+end
+
+def NOTCOINCIDENTINSIDEEDGE(layer1, layer2)
+  return layer1.edges + layer2.edges - COINCIDENTEDGE(layer1, layer2) & (layer1 & layer2).edges
+end
+
+def NOTCOINCIDENTOUTSIDEEDGE(layer1, layer2)
+  return layer1.edges + layer2.edges - COINCIDENTEDGE(layer1, layer2) & (layer1 ^ layer2)
+end
+
+def COPY(layer)
+  return layer.dup
+end
+
+def TOUCH(layer1, layer2)
+  return layer1.outside(layer2) - layer1.not_interacting(layer2)
+end
+
+def NOTTOUCH(layer1, layer2)
+  return layer1 - TOUCH(layer1, layer2)
+end
+
+def TOUCHEDGE(layer1, layer2, mode = 0)
+  l0 = layer1.edges.interacting(layer2.edges)
+  l1 = l0.outside(layer2)
+  l2 = l0.not_outside(layer2.edges)
+  case mode
+    when 1
+      return l1
+    when 2
+      return l1 - l2
+    else
+      return l2
+  end
+end
+
+def NOTTOUCHEDGE(layer1, layer2, mode = 0)
+  return layer1.edges - TOUCHEDGE(layer1, layer2, mode)
+end
+
+def WITHEDGE(layer1, layer2)
+  return layer1.drc(if_any(secondary(layer2.extended_in(1)).edges & primary.edges))
+end
+
+def NOTWITHEDGE(layer1, layer2)
+  return layer1.drc(if_none(secondary(layer2.extended_in(1)).edges & primary.edges))
+end
+
+def EXPANDEDGE(layer, o = 0, i = 0, b = 0, e = 0, join = false)
+  return layer.extended(b, e, o, i, join)
+end
+
+def EXTENT(sou = nil)
+  if sou == nil
+    return source.extent
+  else
+    return sou.extent
+  end
+end
+
+def EXTENTS(layer, mode = 0, s =2, layer2 = nil)
+  case mode
+    when 1
+      return layer.extent_refs(:c).sized(s)
+    when 2
+      return layer.extents.inside(layer2)
+	end
+  return layer.extents
+end
+
+def INSIDE(layer1, layer2)
+  return layer1.inside(layer2)
+end
+
+def INSIDEEDGE(layer1, layer2)
+  l0 = (layer1.edges & layer2)
+  return l0 - l0.outside(layer2)
+end
+
+def NOTANGLE(layer, con)
+  return layer.drc(con) 
+end
+
+def NOTAREA(layer, con)
+  return layer.drc(con)
+end
+
+def NOTENCLOSE(layer1, layer2, con)
+  layer2.raw
+  return layer1.raw.drc(!con)
+end
+
+def NOTINSIDE(layer1, layer2)
+  return layer1.not_inside(layer2) 
+end
+
+def NOTINSIDEEDGE(layer1, layer2)
+  return layer1.edges - INSIDEEDGE(layer1, layer2)
+end
+
+def NOTINTERACT(layer1, layer2, con)
+  layer2.raw
+  layer1.raw.drc(!con)
+end
+
+def NOTLENGTH(layer, con)
+  layer.drc(!length(con))
+end
+
+def NOTOUTSIDE(layer1, layer2)
+  return layer1.not_outside(layer2)
+end
+
+def NOTOUTSIDEEDGE(layer1, layer2)
+  return layer1.edges & layer2
+end
+
+def OREDGE(layer1, layer2)
+  return layer1 + layer2
+end
+
+def OUTSIDE(layer1, layer2)
+  return layer1.outside(layer2) 
+end
+
+def OUTSIDEEDGE(layer1, layer2)
+  return layer1.edges - (layer1.edges & layer2)
+end
+
+def RECTANGLE(layer, ext = false)
+  if ext
+    l = layer.extents
+  else
+    l = layer.raw.drc(rectangles)
+  end
+  return l
+end
+
+def ROTATE(layer, a)
+  return layer.rotated(a)
+end
+
+def SHIFT(layer, x, y)
+  return layer.moved(x, y)
+end
+
+def SHRINK(layer, l =0, r =0, t =0, b =0)
+  return layer.sized((-l-r)/2, (-t-b)/2).move((l-r)/2, (b-t)/2)
+end
+
+def POLYGON(layer, x1, y1, x2, y2, *xy)
+  if xy.length < 2
+    return layer.insert(box(x1, y1, x2, y2))
+  else
+    return layer.insert(polygon(xy))
+  end
+end
+
+def DENSITY(layer, range, tilesize, tileb = nil, tilestep = nil, steplayer=nil)
+  return layer.with_density(range, tile_size(tilesize), tile_boundary(tileb))
+end
+
+def DENSITYBYLAYER(layer1, range, tilesize, layer2)
+  l0 = layer2.extent_refs(:center).sized(tilesize/2)
+  al = []
+  l1 = polygon_layer
+  l0.each{|poly| al << polygon_layer.insert(poly)}
+  al.each do |l|
+    a = (layer1 & l).area / l.area
+    if range.include?(a)
+      l1 += l
+    end
+  end
+  return l1
+end
+
+def DENSITY(layer, range, tilesize, tileb = nil, tilestep = nil)
+  return layer.with_density(range, tile_size(tilesize), tile_boundary(tileb))
+end
+
+def DENSITYBYLAYER(layer1, range, tilesize, layer2)
+  l0 = layer2.extent_refs(:center).sized(tilesize/2)
+  al = []
+  l1 = polygon_layer
+  l0.each{|poly| al << polygon_layer.insert(poly)}
+  al.each do |l|
+    a = (layer1 & l).area / l.area
+    if range.include?(a)
+      l1 += l
+    end
+  end
+  return l1
+end
+
+require 'matrix'
+# 创建一个结构体用于表示高斯核
+Gaussian = Struct.new(:c, :sigma, :k)
+
+def convolve2d(matrix, kernel)
+  mrows, mcols = matrix.row_count, matrix.column_count
+  krows, kcols = kernel.row_count, kernel.column_count
+
+  result = Matrix.build(mrows, mcols) { 0 }
+
+  (0...mrows).each do |i|
+    (0...mcols).each do |j|
+      sum = 0
+      (0...krows).each do |k|
+        (0...kcols).each do |l|
+          ii = i - krows / 2 + k
+          jj = j - kcols / 2 + l
+          if ii >= 0 && ii < mrows && jj >= 0 && jj < mcols
+            sum += matrix[ii, jj] * kernel[k, l]
+          end
+        end
+      end
+      result[i, j] = sum
+    end
+  end
+
+  # 归一化处理
+  max_value = result.max
+  min_value = result.min
+  result = result.map { |x| (x - min_value) / (max_value - min_value) } if max_value != min_value
+
+  result
+end
+
+def density_convolve(layer, range, tilesize, box,  *gausses)
+  densities = []
+  layer_matrix = []
+
+  (box.left..box.right).step(tilesize) do |x|
+    row = []
+    lrow = []
+    (box.bottom..box.top).step(tilesize) do |y|
+      layer_box = polygon_layer.insert(box(x, y, x + tilesize, y + tilesize))
+      density_value = (layer_box & layer).area / layer_box.area
+      row << density_value
+      lrow << layer_box
+    end
+    densities << row
+    layer_matrix << lrow
+  end
+
+  density_array = Matrix[*densities]
+
+  kernels = gausses.map { |g| [Matrix.build(2*g.k+1) { |i, j| Math.exp(-((i-g.k)**2 + (j-g.k)**2)/(2.0*g.sigma**2)) }, g.c] }
+
+  result = Matrix.build(density_array.row_count, density_array.column_count) { 0 }
+
+  kernels.each do |kernel, c|
+    conv_result = convolve2d(density_array, kernel)
+    result += conv_result * c
+  end
+
+  selected_layer = polygon_layer
+  result.each_with_index do |d, r, c|
+    selected_layer |= layer_matrix[r][c] if range.include?(d)
+  end
+
+  selected_layer
+end
+
+def DENSITYCONVOLVE(layer, range, tilesize, tileb, *gausses)
+  box
+  if tileb == nil
+    box = layer.bbox
+  else
+    box = tileb.bbox
+  end
+  density_convolve(layer, range, tilesize, box, *gausses)
+end
+
+# DENSITYCONVOLVEBYLAYER 方法
+def DENSITYCONVOLVEBYLAYER(layer, range, tilesize, layer2, *gausses)
+  layer_matrix = []
+  selected_layer = polygon_layer  # 修正为使用传入的参数 layer
+  l0 = layer2.extent_refs(:center).sized(tilesize/2)
+  l0.each{|poly| layer_matrix << polygon_layer.insert(poly)}
+  densities = Array.new(layer_matrix.length, 0.0)  # 初始化数组时，需要指定默认值为0.0
+  kmax = 0
+  
+  gausses.each do |g|
+    kmax = [kmax, g.k].max
+  end
+  
+  denarr = []
+  layer_matrix.each do |ly|
+    bx = ly.bbox
+    den = Matrix.zero(2*kmax+1, 2*kmax+1)  # 修正为使用 Matrix.zero(rows, cols) 方法
+    (-kmax..kmax).each do |i|
+      (-kmax..kmax).each do |j|
+        layer_box = layer.insert(box(bx.left+i*tilesize, bx.bottom+j*tilesize, bx.right+i*tilesize, bx.top+j*tilesize))
+        den[i, j] = (layer_box & layer).area / layer_box.area
+      end
+    end
+    denarr << den
+  end
+  
+  gausses.each do |g|
+    kernel = Matrix.build(2*g.k+1, 2*g.k+1) { |i, j| Math.exp(-((i-g.k)**2 + (j-g.k)**2)/(2.0*g.sigma**2)) }
+    (0...layer_matrix.length).each do |i|
+      conv_result = convolve2d(denarr[i], kernel)
+      densities[i] += conv_result[g.k, g.k]*g.c
+    end
+  end
+
+  (0...layer_matrix.length).each {|i| selected_layer |= layer_matrix[i] if range.include?(densities[i])}
+
+  selected_layer
+end
+
+######################################

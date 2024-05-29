@@ -1,0 +1,119 @@
+s =  SOURCE top.gds
+t = TARGET top_M.gds
+l1 = INPUT s 1
+l2 = INPUT s 2
+poly = INPUT s 3
+active = INPUT s 4
+l7 = INPUT s 6
+l16 = INPUT s 7
+l17 = INPUT s 8
+
+
+apa = AND poly active 
+OUTPUT apa 4 0
+aspa = AND active >2 
+OUTPUT aspa 7 0
+agl = ANGLE l1 >45 < 90
+OUTPUT agl 5 0
+ll = LENGTH active < 0.5 
+OUTPUT ll 6 0
+ea = ENCLOSE active l7 ==2
+OUTPUT ea 8 0
+sa = SIZE l1 BY 0.4 OVERUNDER
+OUTPUT sa 11 0
+ipa = INTERACT poly active >1
+OUTPUT ipa 12 0
+nap = NOT active poly 
+OUTPUT nap 10 0
+oap = OR active poly 
+OUTPUT oap 13 0
+xap = XOR active poly 
+OUTPUT xap 14 0
+gp = GROW poly RIGHT BY 0.2 BOTTOM BY 0.1
+OUTPUT gp 15 0
+ext = EXTERNAL l16 l17 <= 0.5 OPPOSITE EXCLUDE SHILDED REGION
+OUTPUT ext 18 0
+enc = ENCLOSURE l16 l17 <= 0.5 OPPOSITE EXCLUDE SHILDED PROJecting < 2.5 
+OUTPUT enc 19 0
+in1617 = INTERNAL l16 l17 <= 0.5 OPPOSITE EXCLUDE SHILDED REGION EXTENTS
+OUTPUT in1617 22 0
+cdp = CONVEX EDGE poly ANGLE1 == 90 ANGLE2 == 90 WITH LENGTH < 2.0
+OUTPUT cdp 20 0
+cep = CONVEX EDGE poly == 1 < 2.0
+OUTPUT cep 26 0
+is1617 = INTERNAL active <= 0.5 SQUARE EXCLUDE SHILDED
+OUTPUT is1617 24 0
+exs = EXTERNAL active <= 0.5 OPPOSITE EXTENDED 0.2 EXCLUDE SHILDED
+OUTPUT exs 25 0
+
+#AREA(active, area<1.0).output(26, 0)
+araac  = AREA active <1.0
+OUTPUT araac 26 0
+
+#COINCIDENTEDGE(l16, l17).output(27, 0)
+cce1617 = COINCIDENT EDGE l16 l17 
+OUTPUT cce1617 27 0
+
+#COINCIDENTINSIDEEDGE(l16, l17).output(28, 0)
+ccein1617 = COINCIDENT INSIDE EDGE l16 l17 
+OUTPUT ccein1617 28 0
+
+#COINCIDENTOUTSIDEEDGE(l16, l17).output(29, 0)
+cceout1617 = COINCIDENT OUTSIDE EDGE l16 l17 
+OUTPUT cceout1617 29 0
+#COPY(l16).output(30, 0)
+cp1617 = COPY l16 
+OUTPUT cp1617 30 0
+#TOUCH(l1, l2).output(31)
+t12 = TOUCH l1 l2
+OUTPUT t12 31 0
+#TOUCHEDGE(l1, l2).output(32, 0)
+te12 = TOUCH EDGE l1 l2 
+OUTPUT te12 32 0
+#WITHEDGE(l1, l2.edges).output(33, 0)
+we12 = WITH EDGE l1 te12 
+OUTPUT we12 33 0
+#INSIDE(l1,l2).output(34, 0)
+in12 = INSIDE l1 l2 
+OUTPUT in12 34 0
+#OUTSIDE(l2, l1).output(35, 0)
+out12 = OUTSIDE l2 l1 
+OUTPUT cce1617 35 0
+#INSIDEEDGE(l1, l2).output(36)
+ie12 = INSIDE EDGE l1 l2 
+OUTPUT ie12 36 0
+#OUTSIDEEDGE(l2, l1).output(37)
+oe12 = OUTSIDE EDGE l2 l1 
+OUTPUT oe12 37 0
+#EXPANDEDGE(ll12, 10).output(38)
+exoe12 = EXPAND EDGE oe12 BY 10 
+OUTPUT exoe12 38 0
+#EXTENT().output(39)
+ex = EXTENT
+OUTPUT ex 39 0
+#EXTENTS(l1, 0).output(40)
+ext1 = EXTENTS l1
+OUTPUT ext1 40 0
+#ROTATE(l1, 20).output(41)
+ro1 = ROTATE l1 BY 20 
+OUTPUT ro1 41 0
+#RECTANGLE(l1).output(42)
+rec1 = RECTANGLE l1  
+OUTPUT rec1 42 0
+#SHIFT(l1, 0.1, 0.1).output(43)
+shl1 = SHIFT l1 BY 0.1 0.1 
+OUTPUT shl1 43 0
+#SHRINK(l1, 0.1).output(44)
+srk1 = SHRINK l1 RIGHT BY 0.1 
+OUTPUT srk1 44 0
+
+#l1d = l1.dup()
+l1d = COPY l1
+#POLYGON(l1d, 0, 1, 1, 0).output(45)
+pl1d = POLYGON 0 1 1 0 l1d 
+OUTPUT pl1d 45 0
+#l1dd =l1.dup
+l1dd = COPY l1
+#POLYGON(l1dd, 0, 0.000, 0.000, 0 , p(0, 1.000), p(1.000, 0), p(0, 2.000), p(1.000, 5.000)).output(46)
+pl1dd = POLYGON 0 1 1 0 0 2 1 5 l1dd
+OUTPUT pl1dd 46 0

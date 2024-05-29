@@ -432,6 +432,7 @@ namespace interpreter {
         static std::string ByNameInterpreter(LogicalExpression* exp);
         static std::string CoincidentInterpreter(LogicalExpression* exp);
         static std::string ExpandEdgeInterpreter(LogicalExpression* exp);
+        static std::string ExtentInterpreter(LogicalExpression* exp);
         void setOption(int c, bool d = false, bool a = false);
 
         void setNotFlag(bool flag);
