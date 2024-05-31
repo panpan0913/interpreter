@@ -1,10 +1,11 @@
 ﻿#include "interpreter.h"
 #include <sys/stat.h>
+#include <regex>
 
 using namespace interpreter;
 
-auto interpreter_logger = spdlog::rotating_logger_mt("interpreter_logger", "interpreter.log", 1024 * 1024 * 5, 10);
-
+static auto interpreter_logger = spdlog::rotating_logger_mt("interpreter_logger", "interpreter.log", 1024 * 1024 * 5, 10);
+static auto klayoutpath = getenv("KLAYOUT_PATH");
 static const double DOUBLE_MAX = std::numeric_limits<double>::max();
 static const double DOUBLE_MIN = std::numeric_limits<double>::min();
 
@@ -983,15 +984,35 @@ std::string interpreter::LogicalExpression::ConvexDetailInterpreter(LogicalExpre
 {
     auto children = exp->getChildren();
     std::ostringstream result;
-    result << exp->getOp() << children->at(0)->interpret() << "_DETAIL(";
-    for (size_t i = 1; i < children->size(); i++)
+    auto is12e = children->at(2)->interpret() == children->at(3)->interpret();
+    auto isLen = children->size() == 5;
+    std::string acon = "";
+    result << exp->getOp() << children->at(0)->interpret() << "_DETAIL(" << children->at(1)->interpret() << ", ";
+    if (is12e)
     {
-        result << children->at(i)->interpret();
-        if (i != children->size() - 1)
-        {
-            result << ", ";
-        }
+        ConvexEdgeOptionExpression* chi = static_cast<ConvexEdgeOptionExpression*>(children->at(3).get());
+        ComparatorExpression* cc = static_cast<ComparatorExpression*>(chi->getChildren()->at(0).get());
+        cc->setReverse();
+        acon = fmt::format("(({}).edges - ({}).edges)", children->at(2)->interpret(), chi->interpret());
     }
+    else
+    {
+        acon = fmt::format("(({}).edges & ({}).edges)", children->at(2)->interpret(), children->at(3)->interpret());
+    }
+
+    if (isLen)
+    {
+        ConvexEdgeOptionExpression* chi = static_cast<ConvexEdgeOptionExpression*>(children->at(4).get());
+        LengthExpression* cc = static_cast<LengthExpression*>(chi->getChildren()->at(0).get());
+        ComparatorExpression* ccc = static_cast<ComparatorExpression*>(cc->getChildren()->at(0).get());
+        ccc->setOption(acon);
+        result << chi->interpret();
+    }
+    else
+    {
+        result << acon;
+    }
+    
     result << ")";
     return result.str();
 }
@@ -1324,7 +1345,6 @@ void LogicalExpression::initHash()
     hash.insert({"TOUCH", PREPTR("TOUCH", ExpressionType::LAYER_NAME, NonTerminalExpressionType::TOUCH, "touch", 2, 2, LIMITLIST(mlLimit, mlLimit))});
     hash.insert({"TOUCH", PREPTR("TOUCHEDGE", ExpressionType::LAYER_NAME, NonTerminalExpressionType::TOUCH_EDGE, "touchedge", 3, 4, LIMITLIST(mEdgeLimit, mlLimit, mlLimit))});
     hash.insert({"WITH", PREPTR("WITHEDGE", ExpressionType::LAYER_NAME, NonTerminalExpressionType::WITH_EDGE, "within", 3, 3, LIMITLIST(mEdgeLimit, mlLimit, mlLimit))});
-    hash.insert({"DENSITY", PREPTR("DENSITY", ExpressionType::LAYER_NAME, NonTerminalExpressionType::DENSITY, "DENSITY", 2, 2, LIMITLIST(mlLimit, mlLimit))});
 
     logicInterpreterMap.insert({ NonTerminalExpressionType::AND_SELF, ANDSelfInterpreter});
     logicInterpreterMap.insert({ NonTerminalExpressionType::AND, LogicSelfinterpreter});
@@ -1376,18 +1396,7 @@ std::string ConvexEdgeOptionExpression::interpret()
                 ComparatorExpression* chi = static_cast<ComparatorExpression*>(children->at(0).get());
                 chi->setReverse();
                 chi->setOption(hash.at(op)->getCondition());
-                if (children->size() == 2)
-                {
-                    LengthExpression* chi2 = reinterpret_cast<LengthExpression*>(children->at(1).get());
-                    ComparatorExpression* cc = dynamic_cast<ComparatorExpression*>(chi2->getChildren()->at(0).get());
-                    std::string myOp = fmt::format("({})", chi->interpret());
-                    cc->setOption(myOp);
-                    result << cc->interpret();
-                }
-                else
-                {
-                    result << chi->interpret();
-                }
+                result << chi->interpret();
             }
             break;
         case NonTerminalExpressionType::WITH:
@@ -1490,6 +1499,31 @@ std::vector<std::string> Parser::tokenize(const std::string& str)
     return tokens;
 }
 
+char Parser::getFirstNonSpaceChar(const std::string& str) {
+    auto it = std::find_if(str.begin(), str.end(), [](unsigned char c) { return !std::isspace(c); });
+    return it != str.end() ? *it : '\0';
+}
+
+size_t Parser::findUnquotedHash(const std::string& str) {
+    bool inQuotes = false;
+    char quoteChar = '\0';
+
+    for (size_t i = 0; i < str.size(); ++i) {
+        if (str[i] == '"' || str[i] == '\'') {
+            if (!inQuotes) {
+                inQuotes = true;
+                quoteChar = str[i];
+            } else if (str[i] == quoteChar) {
+                inQuotes = false;
+            }
+        } else if (str[i] == '#' && !inQuotes) {
+            return i;
+        }
+    }
+
+    return std::string::npos;
+}
+
 std::shared_ptr<Expression> Parser::parse(std::string& str, Context* context)
 {
     str.erase(std::remove(str.begin(), str.end(), '\r'), str.end());
@@ -1505,9 +1539,13 @@ std::shared_ptr<Expression> Parser::parse(std::string& str, Context* context)
         throw std::runtime_error("The expression is not supported!");
     }
 
-    if (str[0] == '#')
+    if (getFirstNonSpaceChar(str) == '#')
     {
         return std::make_shared<TerminalExpression>(str);
+    }
+    else 
+    {
+        str = str.substr(0, findUnquotedHash(str));
     }
     
     return parse(tokenize(str), context);
@@ -1787,8 +1825,9 @@ void InterPreterSingle::run()
                     interpreter_logger->error("The environment variable KLAYOUT_PATH is not set!");
                     return;
                 }
+                auto name = getFileNameWithoutExtension();
                 
-                std::string klayoutrun = fmt::format("{0}klayout -b -r {1}_KL.drc", klayoutPath, path);
+                std::string klayoutrun = fmt::format("{0}klayout -b -r {0}/tmp/{1}_KL.drc", klayoutPath, name);
                 interpreter_logger->info("Run the klayout command: {}", klayoutrun);
                 int result = system(klayoutrun.c_str());
                 if (result != 0)
@@ -1813,6 +1852,18 @@ void InterPreterSingle::run()
     }
 }
 
+std::string InterPreterSingle::getFileNameWithoutExtension()
+{
+    std::regex e ("([^/]+)(?=\\.\\w+$)");
+    std::smatch match;
+    auto str = fmt::format("{0}.drc", path);
+    if (std::regex_search(str, match, e) && match.size() > 1) {
+        return match.str(1);  // 第一个子匹配是文件名
+    } else {
+        return "tmp";  // 如果没有匹配，返回空字符串
+    }
+}
+
 // 根据输入文件名读取一个文本文件
 std::string InterPreterSingle::read()
 {
@@ -1831,7 +1882,8 @@ std::string InterPreterSingle::read()
 // 根据输入文件名写一个文本文件
 void InterPreterSingle::write()
 {
-    std::string s = fmt::format("{0}_KL.drc", path);
+    auto name = getFileNameWithoutExtension();
+    std::string s = fmt::format("{}/tmp/{}_KL.drc", klayoutpath, name);
     std::ofstream file(s);
     if (!file.is_open())
     {
@@ -1844,7 +1896,7 @@ void InterPreterSingle::write()
     {
         ls.push_back(expressions[i]->interpret());
     }
-    std::string out =fmt::format("# %include drcrule.drc\n\n{}", join(ls));
+    std::string out =fmt::format("# %include $(env(\"KLAYOUT_PATH\"))drcrule.drc\n\n{}", join(ls));
     file << out;
     chmod(s.c_str(), 0777);
 }

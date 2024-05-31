@@ -512,6 +512,9 @@ namespace interpreter {
 
         static std::vector<std::string> tokenize(const std::string& str);
 
+        static char getFirstNonSpaceChar(const std::string& str);
+        static size_t findUnquotedHash(const std::string& str);
+
         static std::shared_ptr<Expression> parse(std::string& str, Context* cont);
 
         static std::shared_ptr<Expression> parse(const std::vector<std::string>& tokens, Context* cont);
@@ -552,6 +555,7 @@ namespace interpreter {
         std::string read();
 
         void write();
+        std::string getFileNameWithoutExtension();
 
         std::vector<std::string> readLines();
 
