@@ -31,6 +31,7 @@ namespace interpreter {
         SIZE_OPTION,
         DIRECTION_OPTION,
         JOINED_OPTION,
+        GAUSS,
         RESULT_TYPE_END
     };
 
@@ -84,6 +85,8 @@ namespace interpreter {
         TOUCH_EDGE,
         WITH_EDGE,
         EXTENT,
+        DENSITYCONVOLVE,
+        CONVOLVE,
         //left class
         NOT_LEFT,
         EXCLUDE,
@@ -141,6 +144,11 @@ namespace interpreter {
         ALSO,
         ONLY,
         ENDPOINT,
+        STEP,
+        STEP_LAYER,
+        GAUSS,
+        SCALE,
+        CONVOLUTION_GRID,
         NTYPE_END
     };
 

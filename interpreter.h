@@ -50,15 +50,24 @@ namespace interpreter {
     class ExpressionOptionLimit {
     private:
         bool isNessary;
+        bool isInfinity;
         std::unordered_map<ExpressionLimitType, std::any> limitMap;
         static std::unordered_map<ExpressionLimitType, isMatchFunc> isMatchFuncs;
     public:
-        ExpressionOptionLimit(bool isNessary, std::unordered_map<ExpressionLimitType, std::any>&& map) : isNessary(isNessary), limitMap(map) {}
+        ExpressionOptionLimit(bool isNessary, std::unordered_map<ExpressionLimitType, std::any>&& map) : isNessary(isNessary), isInfinity(false),limitMap(map) {}
         bool getIsNessary() const {
             return isNessary;
         }
         std::unordered_map<ExpressionLimitType, std::any>& getLimitValue() {
             return limitMap;
+        }
+
+        void setInfinity(bool isInfinity) {
+            this->isInfinity = isInfinity;
+        }
+
+        bool getInfinity() const {
+            return isInfinity;
         }
         static void init();
         bool isMatch(Expression* exp, const std::vector<std::shared_ptr<Expression>>& childs);
@@ -253,6 +262,7 @@ namespace interpreter {
         bool getDoubleDirection() const;
         virtual bool isInRange(double l, double g);
         virtual std::tuple<double, double, bool> getRange();
+        virtual std::string getRubyRange();
     };
 
     class CompoundComparatorExpression : public ComparatorExpression {
@@ -274,6 +284,7 @@ namespace interpreter {
         static std::shared_ptr<Expression> ParserComp(const std::shared_ptr<Expression>& exp, const std::string& str);
         bool isInRange(double l, double g) override;
         std::tuple<double, double, bool> getRange() override;
+        std::string getRubyRange() override;
     };
 
     //输入表达式
@@ -317,17 +328,18 @@ namespace interpreter {
     class JoinedExpression : public NonterminalExpression {
     public:
         JoinedExpression(std::string op, NonTerminalExpressionType id, std::vector<std::shared_ptr<Expression>> childs) : NonterminalExpression(op, id, childs) {
-            setType(ExpressionType::JOINED_OPTION);
+            setType(hash.find(op)->second->getType());
         }
         std::string interpret() override;
-        static std::unordered_map<std::string, std::shared_ptr<PreExpressionInfo>> hash;
+        const std::string NumbersInterpreter();
+        static std::unordered_multimap<std::string, std::shared_ptr<PreExpressionInfo>> hash;
         static void initHash();
     };
 
     class DirectionOptionExpression : public NonterminalExpression {
     public:
         DirectionOptionExpression(std::string op, NonTerminalExpressionType id, std::vector<std::shared_ptr<Expression>> childs) : NonterminalExpression(op, id, childs) {
-            setType(ExpressionType::DIRECTION_OPTION);
+            setType(hash.at(op)->getType());
         }
 
         std::string interpret() override {
@@ -430,9 +442,13 @@ namespace interpreter {
         static std::string SetOptions1Interpreter(LogicalExpression* exp);
         static std::string ExtentsInterpreter(LogicalExpression* exp);
         static std::string ByNameInterpreter(LogicalExpression* exp);
-        static std::string CoincidentInterpreter(LogicalExpression* exp);
+        static std::string JoinedInterpreter(LogicalExpression* exp);
         static std::string ExpandEdgeInterpreter(LogicalExpression* exp);
         static std::string ExtentInterpreter(LogicalExpression* exp);
+        static std::string DensityInterpreter(LogicalExpression *exp);
+        static int getWindowAndStep(std::shared_ptr<std::vector<std::shared_ptr<interpreter::Expression>>> &children, bool &isStepLayer, std::string &stepLayer, double &wx, double &wy, double &sx, double &sy, std::string &tileb);
+        static std::string ConvolveInterpreter(LogicalExpression *exp);
+        static void getXYFromStr(std::string &ws, double &wx, double &wy);
         void setOption(int c, bool d = false, bool a = false);
 
         void setNotFlag(bool flag);

@@ -363,6 +363,36 @@ std::tuple<double, double, bool> ComparatorExpression::getRange()
     return std::make_tuple(l, g, getNType() != NonTerminalExpressionType::NOT_EQUAL);
 }
 
+std::string interpreter::ComparatorExpression::getRubyRange()
+{
+    switch (getNType())
+    {
+    case NonTerminalExpressionType::EQUAL:
+        return fmt::format("{}..{}", getOperand(), getOperand());
+        break;
+    case NonTerminalExpressionType::NOT_EQUAL:
+        return fmt::format("({}..{}) | ({}..{})", "-Float::INFINITY", getOperand(), getOperand(), "Float::INFINITY");
+        break;
+    case NonTerminalExpressionType::LESS:
+        return fmt::format("(-Float::INFINITY...{})", getOperand());
+        break;
+    case NonTerminalExpressionType::LESS_EQUAL:
+        return fmt::format("(-Float::INFINITY..{})", getOperand());
+        break;
+    case NonTerminalExpressionType::GREATER:
+        return fmt::format("({}...Float::INFINITY)", std::stod(getOperand())+0.0001);
+        break;
+    case NonTerminalExpressionType::GREATER_EQUAL:
+        return fmt::format("({}...Float::INFINITY)", getOperand());
+        break;
+    
+    default:
+        break;
+    }
+
+    return "";
+}
+
 // CompoundComparatorExpression
 CompoundComparatorExpression::CompoundComparatorExpression(std::string op, std::vector<std::shared_ptr<Expression>> childs) : ComparatorExpression(op, NonTerminalExpressionType::RANGE, childs), le(DOUBLE_MIN), ge(DOUBLE_MAX), lt(DOUBLE_MIN), gt(DOUBLE_MAX), isRange(true)
 {
@@ -552,6 +582,27 @@ std::tuple<double, double, bool> CompoundComparatorExpression::getRange()
     return std::make_tuple(std::max(le, lt), std::min(ge, gt), lt != gt);
 }
 
+std::string interpreter::CompoundComparatorExpression::getRubyRange()
+{
+    if (isRange)
+    {
+        double l = std::max(le, lt);
+        double g = std::min(ge, gt);
+        bool ble = (l == le);
+        bool bge = (g == ge);
+        if (l == g && le == ge)
+        {
+            return fmt::format("{}..{}", l, l);
+        }else if (l == g && le != ge)
+        {
+            return fmt::format("({}..{}) | ({}..{})", "-Float::INFINITY", l, l, "Float::INFINITY");
+        }
+        
+        return fmt::format("({}{}{})", ble ? l:l+0.0001, bge?"..":"...", g);
+    }
+    return std::string();
+}
+
 //输入表达式hash
 std::unordered_map<std::string, std::shared_ptr<PreExpressionInfo>> InputExpression::hash = {};
 
@@ -675,7 +726,7 @@ std::string interpreter::OutputExpression::interpret()
 }
 
 //BY hash
-std::unordered_map<std::string, std::shared_ptr<PreExpressionInfo>> JoinedExpression::hash = {};
+std::unordered_multimap<std::string, std::shared_ptr<PreExpressionInfo>> JoinedExpression::hash = {};
 
 std::string interpreter::JoinedExpression::interpret()
 {
@@ -684,20 +735,8 @@ std::string interpreter::JoinedExpression::interpret()
     case NonTerminalExpressionType::BY:
     case NonTerminalExpressionType::EXTENDED:
     case NonTerminalExpressionType::FACTOR:
-        {
-            std::ostringstream result;
-            for (size_t i = 0; i < children->size(); i++)
-            {
-                double val = std::stod(children->at(i)->interpret());
-                auto str = fmt::format("{:.4f}", val);
-                if (i != 0)
-                {
-                    result << ", " ;
-                }
-                result << str;
-            }
-            return result.str();
-        }
+    case NonTerminalExpressionType::STEP:
+        return NumbersInterpreter();
         break;
     case NonTerminalExpressionType::EXTENTS:
         return "0.1";
@@ -708,22 +747,93 @@ std::string interpreter::JoinedExpression::interpret()
     case NonTerminalExpressionType::ONLY:
         return "2";
         break;
+    case NonTerminalExpressionType::SCALE:
+    {
+        return fmt::format("Gaussian[{}, {}, {}]", children->at(0)->interpret(), children->at(1)->interpret(), children->at(2)->interpret());
+    }
+        break;
+    case NonTerminalExpressionType::GAUSS:
     case NonTerminalExpressionType::CENTERS:
     case NonTerminalExpressionType::INSIDE_OPTION:
-    case NonTerminalExpressionType::OF:
     case NonTerminalExpressionType::LAYER_OPTION:
     case NonTerminalExpressionType::EXTEND:
     case NonTerminalExpressionType::CORNER:
     case NonTerminalExpressionType::INSIDE_BY:
     case NonTerminalExpressionType::OUTSIDE_BY:
     case NonTerminalExpressionType::ENDPOINT:
+    case NonTerminalExpressionType::STEP_LAYER:
+    case NonTerminalExpressionType::CONVOLUTION_GRID:
         return children->at(0)->interpret();
+        break; 
+    case NonTerminalExpressionType::WINDOW:
+        {
+            std::ostringstream result;
+
+            for (size_t i = 0; i < children->size(); i++)
+            {
+                NonterminalExpression *child = dynamic_cast<NonterminalExpression*>(children->at(i).get());
+                switch (child->getNType())
+                {
+                case NonTerminalExpressionType::STEP:
+                    result << " $ " << children->at(i)->interpret();
+                    break;
+                case NonTerminalExpressionType::STEP_LAYER:
+                    result << " | " << children->at(i)->interpret();
+                    break;
+                
+                default:
+                    {
+                        double val = std::stod(children->at(i)->interpret());
+                        auto str = fmt::format("{:.4f}", val);
+                        if (i != 0)
+                        {
+                            result << ", ";
+                        }
+                        result << str;
+                    }
+                    break;
+                }
+            }
+            
+            return result.str();
+        }
         break;
+    case NonTerminalExpressionType::OF:
+        {
+            if (children->size() == 1)
+            {
+                NonterminalExpression *child = dynamic_cast<NonterminalExpression*>(children->at(0).get());
+                if (child->getNType() == NonTerminalExpressionType::EXTENT)
+                {
+                    return "nil";
+                }
+                return children->at(0)->interpret();
+            }
+            return NumbersInterpreter();
+        }
+        break;
+
     default:
         return op;
         break;
     }
     return "";
+}
+
+const std::string interpreter::JoinedExpression::NumbersInterpreter()
+{
+    std::ostringstream result;
+    for (size_t i = 0; i < children->size(); i++)
+    {
+        double val = std::stod(children->at(i)->interpret());
+        auto str = fmt::format("{:.4f}", val);
+        if (i != 0)
+        {
+            result << ", ";
+        }
+        result << str;
+    }
+    return result.str();
 }
 
 // inithash
@@ -738,6 +848,10 @@ void JoinedExpression::initHash()
     auto mfLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::FILL));
     auto mFactorLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::FACTOR));
     auto mAOLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::ALSO, NonTerminalExpressionType::ONLY));
+    auto mExtentLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::EXTENT));
+    auto mstepLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::STEP, NonTerminalExpressionType::STEP_LAYER));
+    auto oGridLimit = LIMIT(false, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::CONVOLUTION_GRID));
+    auto mGaussLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::GAUSS));
 
     hash.insert({ "BY", PREPTR("BY", ExpressionType::JOINED_OPTION, NonTerminalExpressionType::BY, "", 1, 2, LIMITLIST(mnLimit, onLimit))});
     hash.insert({"BY", PREPTR("BY", ExpressionType::JOINED_OPTION, NonTerminalExpressionType::BY, "", 1, 1, LIMITLIST(mFactorLimit))});
@@ -757,6 +871,14 @@ void JoinedExpression::initHash()
     hash.insert({"ALSO", PREPTR("ALSO", ExpressionType::JOINED_OPTION, NonTerminalExpressionType::ALSO, "", 0, 0, LIMITLIST()) });
     hash.insert({"ONLY", PREPTR("ONLY", ExpressionType::JOINED_OPTION, NonTerminalExpressionType::ONLY, "", 0, 0, LIMITLIST()) });
     hash.insert({"ENDPOINT", PREPTR("ENDPOINT", ExpressionType::JOINED_OPTION, NonTerminalExpressionType::ENDPOINT, "", 1, 2, LIMITLIST(mAOLimit)) });
+    hash.insert({"WINDOW", PREPTR("WINDOW", ExpressionType::JOINED_OPTION, NonTerminalExpressionType::WINDOW, "", 1, 3, LIMITLIST(mnLimit, onLimit, mstepLimit)) });
+    hash.insert({"STEP", PREPTR("STEP", ExpressionType::JOINED_OPTION, NonTerminalExpressionType::STEP, "", 1, 2, LIMITLIST(mnLimit, onLimit)) });
+    hash.insert({"STEP", PREPTR("STEP", ExpressionType::JOINED_OPTION, NonTerminalExpressionType::STEP_LAYER, "", 1, 1, LIMITLIST(mlLimit))});
+    hash.insert({"OF", PREPTR("OF", ExpressionType::JOINED_OPTION, NonTerminalExpressionType::OF, "", 4, 4, LIMITLIST(mnLimit, mnLimit, mnLimit, mnLimit)) });
+    hash.insert({"OF", PREPTR("OF", ExpressionType::JOINED_OPTION, NonTerminalExpressionType::OF, "", 1, 1, LIMITLIST(mExtentLimit)) });
+    hash.insert({"CONVOLUTION_GRID", PREPTR("CONVOLUTION_GRID", ExpressionType::GAUSS, NonTerminalExpressionType::CONVOLUTION_GRID, "", 1, 1, LIMITLIST(mnLimit)) });
+    hash.insert({"GAUSS",PREPTR("GAUSS", ExpressionType::GAUSS, NonTerminalExpressionType::GAUSS, "", 1, 1, LIMITLIST(mnLimit))});
+    hash.insert({"SCALE", PREPTR("SCALE", ExpressionType::GAUSS, NonTerminalExpressionType::GAUSS, "", 2, 3, LIMITLIST(mnLimit, mGaussLimit, oGridLimit))});
 }
 
 //hash
@@ -1044,8 +1166,7 @@ std::string interpreter::LogicalExpression::ConvexInterpreter(LogicalExpression*
     return result.str();
 }
 
-std::string interpreter::LogicalExpression::
-GrowInterpreter(LogicalExpression* exp)
+std::string interpreter::LogicalExpression::GrowInterpreter(LogicalExpression* exp)
 {
     auto children = exp->getChildren();
     std::ostringstream result;
@@ -1130,9 +1251,9 @@ std::string interpreter::LogicalExpression::ByNameInterpreter(LogicalExpression 
     return result.str();
 }
 
-std::string interpreter::LogicalExpression::CoincidentInterpreter(LogicalExpression *exp)
+std::string interpreter::LogicalExpression::JoinedInterpreter(LogicalExpression *exp)
 {
-    return fmt::format("COINCIDENT{}", exp->getChildren()->at(0)->interpret());
+    return fmt::format("{}{}", exp->op, exp->getChildren()->at(0)->interpret());
 }
 
 std::string interpreter::LogicalExpression::ExpandEdgeInterpreter(LogicalExpression *exp)
@@ -1177,6 +1298,142 @@ std::string interpreter::LogicalExpression::ExtentInterpreter(LogicalExpression 
     else
     {
         return "EXTENT()";
+    }
+}
+
+std::vector<std::string> split(const std::string& s, char delimiter) {
+    std::vector<std::string> tokens;
+    std::string token;
+    std::istringstream tokenStream(s);
+    while (std::getline(tokenStream, token, delimiter)) {
+        tokens.push_back(token);
+    }
+    return tokens;
+}
+
+// 使用方法：
+// std::string str = "a,b,c,d";
+// auto tokens = split(str, ',');
+
+std::string interpreter::LogicalExpression::DensityInterpreter(LogicalExpression *exp)
+{
+    auto children = exp->getChildren();
+    bool isStepLayer = false;
+    auto layer = children->at(0)->interpret();
+    auto range = static_cast<ComparatorExpression*>(children->at(1).get())->getRubyRange();
+    double wx = 0, wy = 0, sx = 0, sy = 0;
+    std::string stepLayer = "";
+    std::string tileb = "nil";
+
+    auto gIndex = getWindowAndStep(children, isStepLayer, stepLayer, wx, wy, sx, sy, tileb);
+
+    if (exp->getNType() == NonTerminalExpressionType::DENSITY)
+    {
+        if (isStepLayer)
+        {
+            return fmt::format("DENSITYBYLAYER({}, {}, {}, {}, {})", layer, range, wx, wy, stepLayer);
+        }
+        else
+        {
+            return fmt::format("DENSITY({}, {}, {}, {}, {}, {}, {})", layer, range, wx, wy, sx, sy, tileb);
+        }
+    }
+    else if(exp->getNType() == NonTerminalExpressionType::DENSITYCONVOLVE)
+    {
+        std::string gaussstr = "";
+        for (size_t i = gIndex; i < children->size(); i++)
+        {
+            gaussstr  = fmt::format("{}{} {}", gaussstr, (i!=gIndex)?",":"", children->at(i)->interpret());
+        }
+        
+        if (isStepLayer)
+        {
+            return fmt::format("CONVOLVEBYLAYER({}, {}, {}, {}, {})", layer, range, wx, stepLayer, gaussstr);
+        }
+        else
+        {
+            return fmt::format("CONVOLVE({}, {}, {}, {}, {})", layer, range, wx, tileb, gaussstr);
+        }    
+    }
+    return fmt::format("NTYPE ERROR typeid:{}, type:{}", exp->getNType(), exp->getOp());
+}
+
+int interpreter::LogicalExpression::getWindowAndStep(std::shared_ptr<std::vector<std::shared_ptr<interpreter::Expression>>> &children, bool &isStepLayer, std::string &stepLayer, double &wx, double &wy, double &sx, double &sy, std::string &tileb)
+{
+    int i = 2;
+    for (; i < children->size(); i++)
+    {
+        NonterminalExpression *chi = static_cast<NonterminalExpression *>(children->at(i).get());
+        switch (chi->getNType())
+        {
+        case NonTerminalExpressionType::WINDOW:
+        {
+            auto str = chi->interpret();
+            isStepLayer = str.find("|") != std::string::npos;
+            if (isStepLayer)
+            {
+                auto sv = split(str, '|');
+                auto ws = sv[0];
+                stepLayer = sv[1];
+
+                getXYFromStr(ws, wx, wy);
+            }
+            else
+            {
+                auto sv = split(str, '$');
+                auto ws = sv[0];
+                auto ss = sv.size() == 2 ? sv[1] : "";
+                getXYFromStr(ws, wx, wy);
+                getXYFromStr(ss, sx, sy);
+            }
+        }
+        break;
+
+        case NonTerminalExpressionType::INSIDE_OPTION:
+        {
+            auto str = chi->interpret();
+            if (str.find(",") != std::string::npos)
+            {
+                tileb = fmt::format("polygon_layer.insert(box({}))", str);
+            }
+            else
+            {
+                tileb = str;
+            }
+        }
+        break;
+
+        default:
+            return i;
+            break;
+        }
+    }
+    return i;
+}
+
+std::string interpreter::LogicalExpression::ConvolveInterpreter(LogicalExpression *exp)
+{
+    auto children = exp->getChildren();
+    
+    return std::string();
+}
+
+void interpreter::LogicalExpression::getXYFromStr(std::string &s, double &x, double &y)
+{
+    if (s.empty())
+    {
+        return ;
+    }
+    
+    auto wsTokens = split(s, ',');
+    if (wsTokens.size() == 2)
+    {
+        x = std::stod(wsTokens[0]);
+        y = std::stod(wsTokens[1]);
+    }
+    else
+    {
+        x = y = std::stod(wsTokens[0]);
     }
 }
 
@@ -1287,6 +1544,10 @@ void LogicalExpression::initHash()
     auto oConLimit = LIMIT(false, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::CORNER));
     auto mBYLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::BY));
     auto mnLimit = LIMIT(true, EXPRESSIONNUMBERLIMIT);
+    auto odenLimit = LIMIT(false, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::WINDOW, NonTerminalExpressionType::INSIDE_OPTION), EXPRESSIONCOUNTLIMIT(1));
+    auto mdcLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::CONVOLVE));
+    auto mGaussLimit = LIMIT(true, NEXPRESSIONTYPELIMIT(NonTerminalExpressionType::SCALE));
+    mGaussLimit->setInfinity(true);
 
     auto andselfLimit = LIMITLIST(mlLimit, mcLimit);
     auto andLimit = LIMITLIST(mlLimit, olLimit);
@@ -1307,6 +1568,8 @@ void LogicalExpression::initHash()
     auto internalLimit0 = LIMITLIST(mlLimit, mcLimit, oRelLimit, oRelLimit, oRelLimit, oRelLimit);
     auto externalLimit0 = LIMITLIST(mlLimit, mcLimit, oRelLimit, oRelLimit, oRelLimit, oRelLimit);
     auto shrinkLimit = LIMITLIST(mlLimit, mgLimit, ogLimit, ogLimit, ogLimit);
+    auto densityLimit = LIMITLIST(mlLimit, mcLimit, odenLimit, odenLimit);
+    auto densityConvolveLimit = LIMITLIST(mlLimit, mcLimit, odenLimit, odenLimit, mGaussLimit);
 
     hash.insert({"AND", PREPTR("AND_SELF", ExpressionType::LAYER_NAME, NonTerminalExpressionType::AND_SELF, "AND_SELF", 2, 2, std::move(andselfLimit))});
     hash.insert({"AND", PREPTR("AND", ExpressionType::LAYER_NAME, NonTerminalExpressionType::AND, "AND", 1, 2, std::move(andLimit))});
@@ -1345,7 +1608,10 @@ void LogicalExpression::initHash()
     hash.insert({"TOUCH", PREPTR("TOUCH", ExpressionType::LAYER_NAME, NonTerminalExpressionType::TOUCH, "touch", 2, 2, LIMITLIST(mlLimit, mlLimit))});
     hash.insert({"TOUCH", PREPTR("TOUCHEDGE", ExpressionType::LAYER_NAME, NonTerminalExpressionType::TOUCH_EDGE, "touchedge", 3, 4, LIMITLIST(mEdgeLimit, mlLimit, mlLimit))});
     hash.insert({"WITH", PREPTR("WITHEDGE", ExpressionType::LAYER_NAME, NonTerminalExpressionType::WITH_EDGE, "within", 3, 3, LIMITLIST(mEdgeLimit, mlLimit, mlLimit))});
-
+    hash.insert({"DENSITY", PREPTR("DENSITY", ExpressionType::LAYER_NAME, NonTerminalExpressionType::DENSITY, "density", 2, 4, std::move(densityLimit))});
+    hash.insert({"DENSITY", PREPTR("DENSITYCONVOLVE", ExpressionType::LAYER_NAME, NonTerminalExpressionType::DENSITYCONVOLVE, "densityconvolve", 1, 1, LIMITLIST(mdcLimit))});
+    hash.insert({"CONVOLVE", PREPTR("CONVOLVE", ExpressionType::LAYER_NAME, NonTerminalExpressionType::CONVOLVE, "convolve", 2, 5, std::move(densityConvolveLimit))});
+    
     logicInterpreterMap.insert({ NonTerminalExpressionType::AND_SELF, ANDSelfInterpreter});
     logicInterpreterMap.insert({ NonTerminalExpressionType::AND, LogicSelfinterpreter});
     logicInterpreterMap.insert({ NonTerminalExpressionType::OR, LogicSelfinterpreter});
@@ -1373,7 +1639,7 @@ void LogicalExpression::initHash()
     logicInterpreterMap.insert({ NonTerminalExpressionType::INSIDE_EDGE, ByNameInterpreter});
     logicInterpreterMap.insert({ NonTerminalExpressionType::OUTSIDE_EDGE, ByNameInterpreter});
     logicInterpreterMap.insert({ NonTerminalExpressionType::COINCIDENT_EDGE, ByNameInterpreter});
-    logicInterpreterMap.insert({ NonTerminalExpressionType::COINCIDENT_INSIDE_OR_OUTSIDE_EDGE, CoincidentInterpreter});
+    logicInterpreterMap.insert({ NonTerminalExpressionType::COINCIDENT_INSIDE_OR_OUTSIDE_EDGE, JoinedInterpreter});
     logicInterpreterMap.insert({ NonTerminalExpressionType::EXPAND_EDGE, ExpandEdgeInterpreter});
     logicInterpreterMap.insert({ NonTerminalExpressionType::OR_EDGE, CommonInterpreter});
     logicInterpreterMap.insert({ NonTerminalExpressionType::ROTATE, CommonInterpreter});
@@ -1383,6 +1649,9 @@ void LogicalExpression::initHash()
     logicInterpreterMap.insert({ NonTerminalExpressionType::TOUCH_EDGE, ByNameInterpreter});
     logicInterpreterMap.insert({ NonTerminalExpressionType::WITH_EDGE, ByNameInterpreter});
     logicInterpreterMap.insert({ NonTerminalExpressionType::RECTANGLE, CommonInterpreter});
+    logicInterpreterMap.insert({ NonTerminalExpressionType::DENSITY, DensityInterpreter});
+    logicInterpreterMap.insert({NonTerminalExpressionType::DENSITYCONVOLVE, JoinedInterpreter});
+    logicInterpreterMap.insert({NonTerminalExpressionType::CONVOLVE, DensityInterpreter});
 }
 
 std::string ConvexEdgeOptionExpression::interpret()
@@ -1647,8 +1916,11 @@ bool Parser::parser(const std::vector<std::string>& tokens, std::stack<std::shar
         
         if (limit->isMatch(stack.top().get(), childs))
         {
+            do{
             childs.push_back(stack.top());
             stack.pop();
+            }while (limit->getInfinity() && limit->isMatch(stack.top().get(), childs));
+
             if (limit->getIsNessary())
             {
                 count--;
@@ -2088,7 +2360,7 @@ int main()
     int state = 0;
     Interpreter::Init();
     std::cout << "Test Start!" << std::endl;
-    Interpreter::Run("test1", [&state](int st) { state = st ; std::cout<< "State: " << state << std::endl; });
+    Interpreter::Run("test", [&state](int st) { state = st ; std::cout<< "State: " << state << std::endl; });
 /*     std::cout << "Test Pause!" << std::endl;
     Interpreter::Pause("test");
     std::cout << "Test SetBreakPoint!" << std::endl;
@@ -2102,7 +2374,7 @@ int main()
     std::cout << "Test Resume!" << std::endl;
     Interpreter::Resume("test"); */
     std::cout << "Test Stop!" << std::endl;
-    while (state)
+    while (state % 3)
     {
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }

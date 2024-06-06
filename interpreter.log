@@ -233,3 +233,43 @@
 [2024-05-24 15:04:43.474] [interpreter_logger] [info] Stop the interpreter thread
 [2024-05-24 15:04:43.474] [interpreter_logger] [info] Run the klayout command: /home/zhangpan/桌面/klayout/bin/klayout -b -r test1_KL.drc
 [2024-05-24 15:04:44.513] [interpreter_logger] [info] Pause the interpreter thread for the klayout run
+[2024-05-31 12:14:51.116] [interpreter_logger] [info] The parser is initialized!
+[2024-05-31 12:14:51.118] [interpreter_logger] [info] Start the interpreter thread
+[2024-06-03 09:59:54.691] [interpreter_logger] [info] The parser is initialized!
+[2024-06-03 09:59:54.692] [interpreter_logger] [info] Start the interpreter thread
+[2024-06-03 09:59:54.702] [interpreter_logger] [error] The file /home/zhangpan/桌面/klayout/bin//tmp/test1_KL.drc is not found!
+[2024-06-03 09:59:54.702] [interpreter_logger] [error] failed in run: The file /home/zhangpan/桌面/klayout/bin//tmp/test1_KL.drc is not found!
+[2024-06-03 10:01:06.363] [interpreter_logger] [info] The parser is initialized!
+[2024-06-03 10:01:06.365] [interpreter_logger] [info] Start the interpreter thread
+[2024-06-03 10:01:06.370] [interpreter_logger] [error] The file /home/zhangpan/桌面/klayout/bin//tmp/test_KL.drc is not found!
+[2024-06-03 10:01:06.370] [interpreter_logger] [error] failed in run: The file /home/zhangpan/桌面/klayout/bin//tmp/test_KL.drc is not found!
+[2024-06-03 10:02:08.804] [interpreter_logger] [info] The parser is initialized!
+[2024-06-03 10:02:08.805] [interpreter_logger] [info] Start the interpreter thread
+[2024-06-03 10:02:36.381] [interpreter_logger] [error] The file /home/zhangpan/桌面/klayout/bin//tmp/test_KL.drc is not found!
+[2024-06-03 10:02:36.381] [interpreter_logger] [error] failed in run: The file /home/zhangpan/桌面/klayout/bin//tmp/test_KL.drc is not found!
+[2024-06-03 10:02:37.375] [interpreter_logger] [info] Stop the interpreter thread
+[2024-06-03 10:02:37.375] [interpreter_logger] [info] Stop the interpreter thread
+[2024-06-03 10:03:25.907] [interpreter_logger] [info] The parser is initialized!
+[2024-06-03 10:03:25.908] [interpreter_logger] [info] Start the interpreter thread
+[2024-06-03 10:03:25.912] [interpreter_logger] [error] The file /home/zhangpan/桌面/klayout/bin//tmp/test_KL.drc is not found!
+[2024-06-03 10:03:25.912] [interpreter_logger] [error] failed in run: The file /home/zhangpan/桌面/klayout/bin//tmp/test_KL.drc is not found!
+[2024-06-03 10:03:26.908] [interpreter_logger] [info] Stop the interpreter thread
+[2024-06-03 10:03:26.908] [interpreter_logger] [info] Stop the interpreter thread
+[2024-06-03 10:11:13.913] [interpreter_logger] [info] The parser is initialized!
+[2024-06-03 10:11:13.914] [interpreter_logger] [info] Start the interpreter thread
+[2024-06-03 10:11:13.918] [interpreter_logger] [error] The file /home/zhangpan/桌面/klayout/bin//tmp/test_KL.drc is not found!
+[2024-06-03 10:11:13.918] [interpreter_logger] [error] failed in run: The file /home/zhangpan/桌面/klayout/bin//tmp/test_KL.drc is not found!
+[2024-06-03 10:11:14.915] [interpreter_logger] [info] Stop the interpreter thread
+[2024-06-03 10:11:14.915] [interpreter_logger] [info] Stop the interpreter thread
+[2024-06-04 14:30:33.869] [interpreter_logger] [info] The parser is initialized!
+[2024-06-04 14:30:33.872] [interpreter_logger] [info] Start the interpreter thread
+[2024-06-04 14:30:33.876] [interpreter_logger] [error] The file /home/zhangpan/桌面/klayout/bin//tmp/test_KL.drc is not found!
+[2024-06-04 14:30:33.876] [interpreter_logger] [error] failed in run: The file /home/zhangpan/桌面/klayout/bin//tmp/test_KL.drc is not found!
+[2024-06-04 14:30:34.874] [interpreter_logger] [info] Stop the interpreter thread
+[2024-06-04 14:30:34.874] [interpreter_logger] [info] Stop the interpreter thread
+[2024-06-06 16:29:13.287] [interpreter_logger] [info] The parser is initialized!
+[2024-06-06 16:29:13.289] [interpreter_logger] [info] Start the interpreter thread
+[2024-06-06 16:29:13.294] [interpreter_logger] [error] The file /home/zhangpan/桌面/klayout/bin//tmp/test_KL.drc is not found!
+[2024-06-06 16:29:13.294] [interpreter_logger] [error] failed in run: The file /home/zhangpan/桌面/klayout/bin//tmp/test_KL.drc is not found!
+[2024-06-06 16:29:14.290] [interpreter_logger] [info] Stop the interpreter thread
+[2024-06-06 16:29:14.290] [interpreter_logger] [info] Stop the interpreter thread

@@ -2,17 +2,17 @@
 
 # This is a sample
 
-def SIZE(layer, val, mode)
+def SIZE(layer, val, mode=0)
   case mode
     when 1
       return layer.raw.drc(sized(val).sized(-val)).merged
-    when 2 
+    when 2
       return layer.raw.drc(sized(-val).sized(val)).merged
     else
       return layer.raw.drc(sized(val)).merged
   end
 end
-  
+
 def GROW(layer, l =0, r =0, t =0, b =0)
   return layer.sized((l+r)/2, (t+b)/2).move((r-l)/2, (t-b)/2)
 end
@@ -26,25 +26,25 @@ def AngleMode(min, max)
   else
     res.push(min).push(max)
   end
-  return res 
+  return res
 end
 
 def NOT(layer1, layer2)
   return layer1.not(layer2)
 end
-  
+
 def OR(layer1, layer2)
   return layer1.or(layer2)
 end
-  
+
 def OR_SELF(layer)
   return layer.merge()
 end
-  
+
 def XOR(layer1, layer2)
   return layer1.xor(layer2)
 end
-  
+
 def XOR_SELF(layer)
   return layer.merge() - layer.merge(2)
 end
@@ -52,7 +52,7 @@ end
 def AND(layer1,layer2)
   return layer1.and(layer2)
 end
-  
+
 def AND_SELF(layer, min, max = 10, re = true)
   if min == max
     if re
@@ -61,7 +61,7 @@ def AND_SELF(layer, min, max = 10, re = true)
       return layer.merged() - layer.merged(min) + layer.merged(min+1)
     end
   end
-  
+
   if max == 10
     return layer.merged(min)
   else
@@ -77,12 +77,12 @@ end
 def compute_distance(layer, condition, region = false, ext = 0)
   result = layer.drc(condition)
   if !region
-    result = result.edges
+    result = result.edges if result.edge_pairs?
     result = result.extended(ext, ext, 1, 0).edges.intersections(result.extended(ext, ext, 0, 1).edges) if ext != 0
   else
     result = result.extents if ext != 0
   end
-  return result
+  result
 end
 
 ###################################################
@@ -94,21 +94,19 @@ end
 def ENCLOSE(layer1, layer2, con)
   layer2.raw
   return layer1.raw.drc(con)
-end  
-  
+end
+
 def ANGLE(layer, con)
   return layer.drc(con)
 end
 
-def CONVEXEDGE_DETAIL(layer, acon1, acon2, lcon = length>0)
-  c1 = layer.drc(acon1)
-  c2 = layer.drc(acon2)
-  return c1.polygons.drc(lcon) & c2.polygons.drc(lcon)
+def CONVEXEDGE_DETAIL(layer, con)
+    layer.drc(con)
 end
-  
+
 def CONVEXEDGE(layer, mode, lcon = length>0)
   el = layer.drc((corners(as_edge_pairs) > 0))
-  case mode 
+  case mode
     when 1
       return  el.polygons.drc(lcon)  & el.edges
     when 2
@@ -131,7 +129,7 @@ end
 def INTERNAL(layer1, dcon, region = false,  ext = 0)
   return compute_distance(layer1, dcon, region, ext)
 end
-  
+
 def INTERNAL_SELF(layer1, dcon, region = false,  ext = 0)
   return compute_distance(layer1, dcon, region, ext)
 end
@@ -236,7 +234,7 @@ def INSIDEEDGE(layer1, layer2)
 end
 
 def NOTANGLE(layer, con)
-  return layer.drc(con) 
+  return layer.drc(con)
 end
 
 def NOTAREA(layer, con)
@@ -249,7 +247,7 @@ def NOTENCLOSE(layer1, layer2, con)
 end
 
 def NOTINSIDE(layer1, layer2)
-  return layer1.not_inside(layer2) 
+  return layer1.not_inside(layer2)
 end
 
 def NOTINSIDEEDGE(layer1, layer2)
@@ -278,7 +276,7 @@ def OREDGE(layer1, layer2)
 end
 
 def OUTSIDE(layer1, layer2)
-  return layer1.outside(layer2) 
+  return layer1.outside(layer2)
 end
 
 def OUTSIDEEDGE(layer1, layer2)
@@ -312,24 +310,6 @@ def POLYGON(layer, x1, y1, x2, y2, *xy)
   else
     return layer.insert(polygon(xy))
   end
-end
-
-def DENSITY(layer, range, tilesize, tileb = nil, tilestep = nil, steplayer=nil)
-  return layer.with_density(range, tile_size(tilesize), tile_boundary(tileb))
-end
-
-def DENSITYBYLAYER(layer1, range, tilesize, layer2)
-  l0 = layer2.extent_refs(:center).sized(tilesize/2)
-  al = []
-  l1 = polygon_layer
-  l0.each{|poly| al << polygon_layer.insert(poly)}
-  al.each do |l|
-    a = (layer1 & l).area / l.area
-    if range.include?(a)
-      l1 += l
-    end
-  end
-  return l1
 end
 
 def DENSITY(layer, range, tilesize, tileb = nil, tilestep = nil)
@@ -438,11 +418,11 @@ def DENSITYCONVOLVEBYLAYER(layer, range, tilesize, layer2, *gausses)
   l0.each{|poly| layer_matrix << polygon_layer.insert(poly)}
   densities = Array.new(layer_matrix.length, 0.0)  # 初始化数组时，需要指定默认值为0.0
   kmax = 0
-  
+
   gausses.each do |g|
     kmax = [kmax, g.k].max
   end
-  
+
   denarr = []
   layer_matrix.each do |ly|
     bx = ly.bbox
@@ -455,7 +435,7 @@ def DENSITYCONVOLVEBYLAYER(layer, range, tilesize, layer2, *gausses)
     end
     denarr << den
   end
-  
+
   gausses.each do |g|
     kernel = Matrix.build(2*g.k+1, 2*g.k+1) { |i, j| Math.exp(-((i-g.k)**2 + (j-g.k)**2)/(2.0*g.sigma**2)) }
     (0...layer_matrix.length).each do |i|
